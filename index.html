@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <title>US Capitals Flashcards</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --panel-2: #334155;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #38bdf8;
+        --good: #4ade80;
+        --bad: #f87171;
+        --warn: #facc15;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
+          system-ui, sans-serif;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+      }
+      .app {
+        width: 100%;
+        max-width: 480px;
+        padding: 24px 0 40px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+      }
+      .reset-btn {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--panel-2);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .reset-btn:hover {
+        color: var(--text);
+        border-color: var(--muted);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .stat {
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition:
+          border-color 0.15s,
+          transform 0.05s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .stat:hover {
+        border-color: var(--panel-2);
+      }
+      .stat:active {
+        transform: scale(0.98);
+      }
+      .stat[aria-disabled="true"] {
+        cursor: default;
+        opacity: 0.55;
+      }
+      .stat[aria-disabled="true"]:hover {
+        border-color: transparent;
+      }
+      .stat-num {
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .stat-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 2px;
+      }
+      .stat.mastered .stat-num {
+        color: var(--good);
+      }
+      .stat.learning .stat-num {
+        color: var(--warn);
+      }
+      .stat.new .stat-num {
+        color: var(--accent);
+      }
+
+      .card {
+        background: var(--panel);
+        border-radius: 18px;
+        padding: 32px 24px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        text-align: center;
+      }
+      .state {
+        font-size: 36px;
+        font-weight: 700;
+        line-height: 1.1;
+        margin: 12px 0 6px;
+        letter-spacing: -0.01em;
+      }
+      .prompt {
+        color: var(--muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      form {
+        margin-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      input[type="text"] {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 2px solid var(--panel-2);
+        border-radius: 12px;
+        padding: 14px 16px;
+        font-size: 18px;
+        text-align: center;
+        outline: none;
+        -webkit-appearance: none;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus {
+        border-color: var(--accent);
+      }
+      input[type="text"].correct {
+        border-color: var(--good);
+        background: rgba(74, 222, 128, 0.08);
+      }
+      input[type="text"].close {
+        border-color: var(--warn);
+        background: rgba(250, 204, 21, 0.08);
+      }
+      input[type="text"].wrong {
+        border-color: var(--bad);
+        background: rgba(248, 113, 113, 0.08);
+      }
+
+      .buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      button.action {
+        border: none;
+        border-radius: 12px;
+        padding: 14px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          opacity 0.15s,
+          transform 0.05s;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button.action:active {
+        transform: scale(0.98);
+      }
+      button.submit {
+        background: var(--accent);
+        color: #0c1422;
+      }
+      button.dunno {
+        background: var(--panel-2);
+        color: var(--text);
+      }
+      button.next {
+        background: var(--good);
+        color: #0a1f12;
+        grid-column: span 2;
+      }
+
+      .feedback {
+        margin-top: 18px;
+        min-height: 24px;
+        font-size: 16px;
+        text-align: center;
+      }
+      .feedback.good {
+        color: var(--good);
+      }
+      .feedback.bad {
+        color: var(--bad);
+      }
+      .feedback.warn {
+        color: var(--warn);
+      }
+      .answer {
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .hint {
+        text-align: center;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 24px;
+      }
+      .streak-dots {
+        display: flex;
+        gap: 4px;
+        justify-content: center;
+        margin-top: 10px;
+        min-height: 8px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--panel-2);
+      }
+      .dot.on {
+        background: var(--good);
+      }
+
+      @media (max-width: 380px) {
+        .state {
+          font-size: 30px;
+        }
+        input[type="text"] {
+          font-size: 16px;
+        }
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 50;
+        padding: 20px;
+        padding-top: max(40px, env(safe-area-inset-top));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+      }
+      .modal-backdrop.open {
+        display: flex;
+      }
+      @media (min-width: 520px) {
+        .modal-backdrop {
+          align-items: center;
+        }
+      }
+      .modal {
+        background: var(--panel);
+        border-radius: 16px;
+        width: 100%;
+        max-width: 480px;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--panel-2);
+      }
+      .modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0;
+      }
+      .modal-title .count {
+        color: var(--muted);
+        font-weight: 400;
+        margin-left: 6px;
+      }
+      .modal-close {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .modal-close:hover {
+        color: var(--text);
+      }
+      .modal-body {
+        overflow-y: auto;
+        padding: 8px 0;
+        -webkit-overflow-scrolling: touch;
+      }
+      .modal-empty {
+        text-align: center;
+        color: var(--muted);
+        padding: 40px 20px;
+        font-size: 14px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+      .row-state {
+        font-weight: 600;
+        font-size: 15px;
+      }
+      .row-cap {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 2px;
+      }
+      .row-meta {
+        text-align: right;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .row-meta .ok {
+        color: var(--good);
+      }
+      .row-meta .bad {
+        color: var(--bad);
+      }
+      .row-streak {
+        display: flex;
+        gap: 3px;
+        justify-content: flex-end;
+        margin-top: 4px;
+      }
+      .row-streak .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--panel-2);
+      }
+      .row-streak .dot.on {
+        background: var(--good);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>US Capitals</h1>
+        <button class="reset-btn" id="resetBtn" title="Reset progress">
+          Reset
+        </button>
+      </header>
+
+      <div class="stats">
+        <div
+          class="stat mastered"
+          data-cat="mastered"
+          role="button"
+          tabindex="0"
+        >
+          <div class="stat-num" id="masteredCount">0</div>
+          <div class="stat-label">Mastered</div>
+        </div>
+        <div
+          class="stat learning"
+          data-cat="learning"
+          role="button"
+          tabindex="0"
+        >
+          <div class="stat-num" id="learningCount">0</div>
+          <div class="stat-label">Learning</div>
+        </div>
+        <div class="stat new" data-cat="new" role="button" tabindex="0">
+          <div class="stat-num" id="newCount">50</div>
+          <div class="stat-label">New</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="prompt">What is the capital of</div>
+        <div class="state" id="stateName">—</div>
+        <div class="streak-dots" id="streakDots"></div>
+
+        <form id="answerForm" autocomplete="off">
+          <input
+            type="text"
+            id="answerInput"
+            placeholder="Type the capital…"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="words"
+            spellcheck="false"
+            enterkeyhint="go"
+          />
+          <div class="buttons" id="buttonRow">
+            <button type="submit" class="action submit" id="submitBtn">
+              Check
+            </button>
+            <button type="button" class="action dunno" id="dunnoBtn">
+              I don't know
+            </button>
+          </div>
+        </form>
+
+        <div class="feedback" id="feedback"></div>
+      </div>
+
+      <div class="hint">Progress saved locally on this device.</div>
+    </div>
+
+    <div
+      class="modal-backdrop"
+      id="modalBackdrop"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div class="modal" role="document">
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">—</h2>
+          <button class="modal-close" id="modalClose" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const STATES = [
+          ["Alabama", "Montgomery"],
+          ["Alaska", "Juneau"],
+          ["Arizona", "Phoenix"],
+          ["Arkansas", "Little Rock"],
+          ["California", "Sacramento"],
+          ["Colorado", "Denver"],
+          ["Connecticut", "Hartford"],
+          ["Delaware", "Dover"],
+          ["Florida", "Tallahassee"],
+          ["Georgia", "Atlanta"],
+          ["Hawaii", "Honolulu"],
+          ["Idaho", "Boise"],
+          ["Illinois", "Springfield"],
+          ["Indiana", "Indianapolis"],
+          ["Iowa", "Des Moines"],
+          ["Kansas", "Topeka"],
+          ["Kentucky", "Frankfort"],
+          ["Louisiana", "Baton Rouge"],
+          ["Maine", "Augusta"],
+          ["Maryland", "Annapolis"],
+          ["Massachusetts", "Boston"],
+          ["Michigan", "Lansing"],
+          ["Minnesota", "Saint Paul"],
+          ["Mississippi", "Jackson"],
+          ["Missouri", "Jefferson City"],
+          ["Montana", "Helena"],
+          ["Nebraska", "Lincoln"],
+          ["Nevada", "Carson City"],
+          ["New Hampshire", "Concord"],
+          ["New Jersey", "Trenton"],
+          ["New Mexico", "Santa Fe"],
+          ["New York", "Albany"],
+          ["North Carolina", "Raleigh"],
+          ["North Dakota", "Bismarck"],
+          ["Ohio", "Columbus"],
+          ["Oklahoma", "Oklahoma City"],
+          ["Oregon", "Salem"],
+          ["Pennsylvania", "Harrisburg"],
+          ["Rhode Island", "Providence"],
+          ["South Carolina", "Columbia"],
+          ["South Dakota", "Pierre"],
+          ["Tennessee", "Nashville"],
+          ["Texas", "Austin"],
+          ["Utah", "Salt Lake City"],
+          ["Vermont", "Montpelier"],
+          ["Virginia", "Richmond"],
+          ["Washington", "Olympia"],
+          ["West Virginia", "Charleston"],
+          ["Wisconsin", "Madison"],
+          ["Wyoming", "Cheyenne"],
+        ];
+
+        // Accept common alternate spellings
+        const ALIASES = {
+          "Saint Paul": ["st paul", "st. paul"],
+        };
+
+        const MASTERED_AT = 4; // streak >= this = mastered
+        const STORAGE_KEY = "us-capitals-progress-v1";
+
+        const $ = (id) => document.getElementById(id);
+        const stateNameEl = $("stateName");
+        const inputEl = $("answerInput");
+        const feedbackEl = $("feedback");
+        const formEl = $("answerForm");
+        const submitBtn = $("submitBtn");
+        const dunnoBtn = $("dunnoBtn");
+        const buttonRow = $("buttonRow");
+        const streakDotsEl = $("streakDots");
+
+        let progress = loadProgress();
+        let current = null;
+        let lastShown = null;
+        let phase = "asking"; // "asking" | "revealed"
+
+        function loadProgress() {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const data = raw ? JSON.parse(raw) : {};
+            // Ensure every state has an entry
+            for (const [s] of STATES) {
+              if (!data[s])
+                data[s] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
+            }
+            return data;
+          } catch {
+            const fresh = {};
+            for (const [s] of STATES)
+              fresh[s] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
+            return fresh;
+          }
+        }
+
+        function saveProgress() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+        }
+
+        function normalize(s) {
+          return s
+            .toLowerCase()
+            .trim()
+            .replace(/[.\-']/g, "")
+            .replace(/\s+/g, " ");
+        }
+
+        function levenshtein(a, b) {
+          if (a === b) return 0;
+          if (!a.length) return b.length;
+          if (!b.length) return a.length;
+          let prev = new Array(b.length + 1);
+          let curr = new Array(b.length + 1);
+          for (let j = 0; j <= b.length; j++) prev[j] = j;
+          for (let i = 1; i <= a.length; i++) {
+            curr[0] = i;
+            for (let j = 1; j <= b.length; j++) {
+              const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+              curr[j] = Math.min(
+                curr[j - 1] + 1, // insertion
+                prev[j] + 1, // deletion
+                prev[j - 1] + cost, // substitution
+              );
+            }
+            [prev, curr] = [curr, prev];
+          }
+          return prev[b.length];
+        }
+
+        // Returns "exact", "close", or "no".
+        // Close = small typo (1 edit for short words, up to ~20% of length for longer ones),
+        // but only if no other capital is an equally-good match (avoid mistaken acceptance).
+        function classify(answer, correct) {
+          const a = normalize(answer);
+          if (!a) return "no";
+          const c = normalize(correct);
+          if (a === c) return "exact";
+          const aliases = ALIASES[correct] || [];
+          if (aliases.some((alt) => normalize(alt) === a)) return "exact";
+
+          const tolerance = Math.max(1, Math.round(c.length / 5));
+          const dist = levenshtein(a, c);
+          if (dist > tolerance) return "no";
+
+          // Guard: if some other capital is at least as close, treat as wrong.
+          for (const [, otherCap] of STATES) {
+            if (otherCap === correct) continue;
+            if (levenshtein(a, normalize(otherCap)) <= dist) return "no";
+          }
+          return "close";
+        }
+
+        // Weighted pick — wrong answers and low-streak states show up more often.
+        function pickNext() {
+          const weights = STATES.map(([state]) => {
+            const p = progress[state];
+            // Base weight
+            let w = 1;
+            // Boost for past wrongs
+            w += p.wrong * 3;
+            // Penalty for streak: each correct-in-a-row halves the weight
+            w *= Math.pow(0.5, p.streak);
+            // Mastered states get a small floor so they show occasionally
+            if (p.streak >= MASTERED_AT) w = Math.max(w, 0.05);
+            // Brand new states get a boost so we cover them all initially
+            if (p.seen === 0) w += 2;
+            return w;
+          });
+
+          // Avoid repeating the same state twice in a row when possible
+          if (lastShown && STATES.length > 1) {
+            const idx = STATES.findIndex(([s]) => s === lastShown);
+            if (idx >= 0) weights[idx] *= 0.05;
+          }
+
+          const total = weights.reduce((a, b) => a + b, 0);
+          let r = Math.random() * total;
+          for (let i = 0; i < STATES.length; i++) {
+            r -= weights[i];
+            if (r <= 0) return STATES[i];
+          }
+          return STATES[STATES.length - 1];
+        }
+
+        function categoryOf(state) {
+          const p = progress[state];
+          if (p.seen === 0) return "new";
+          if (p.streak >= MASTERED_AT) return "mastered";
+          return "learning";
+        }
+
+        function renderStats() {
+          let mastered = 0,
+            learning = 0,
+            fresh = 0;
+          for (const [s] of STATES) {
+            const c = categoryOf(s);
+            if (c === "mastered") mastered++;
+            else if (c === "learning") learning++;
+            else fresh++;
+          }
+          $("masteredCount").textContent = mastered;
+          $("learningCount").textContent = learning;
+          $("newCount").textContent = fresh;
+          const counts = { mastered, learning, new: fresh };
+          document.querySelectorAll(".stat[data-cat]").forEach((el) => {
+            const cat = el.dataset.cat;
+            el.setAttribute(
+              "aria-disabled",
+              counts[cat] === 0 ? "true" : "false",
+            );
+          });
+        }
+
+        const CATEGORY_LABELS = {
+          mastered: "Mastered",
+          learning: "Learning",
+          new: "Not yet seen",
+        };
+
+        function openCategory(cat) {
+          const rows = STATES.filter(([s]) => categoryOf(s) === cat).map(
+            ([state, capital]) => ({ state, capital, p: progress[state] }),
+          );
+
+          if (cat === "learning") {
+            // Worst first: most wrongs, then lowest streak
+            rows.sort(
+              (a, b) =>
+                b.p.wrong - a.p.wrong ||
+                a.p.streak - b.p.streak ||
+                a.state.localeCompare(b.state),
+            );
+          } else if (cat === "mastered") {
+            rows.sort(
+              (a, b) =>
+                b.p.streak - a.p.streak ||
+                b.p.correct - a.p.correct ||
+                a.state.localeCompare(b.state),
+            );
+          } else {
+            rows.sort((a, b) => a.state.localeCompare(b.state));
+          }
+
+          $("modalTitle").innerHTML =
+            `${CATEGORY_LABELS[cat]} <span class="count">· ${rows.length}</span>`;
+          const body = $("modalBody");
+          if (rows.length === 0) {
+            body.innerHTML = `<div class="modal-empty">Nothing here yet.</div>`;
+          } else {
+            body.innerHTML = rows
+              .map(({ state, capital, p }) => {
+                let meta = "";
+                if (cat === "new") {
+                  meta = `<div>—</div>`;
+                } else {
+                  const total = p.correct + p.wrong;
+                  const streakHtml = Array.from(
+                    { length: MASTERED_AT },
+                    (_, i) =>
+                      `<span class="dot ${i < Math.min(p.streak, MASTERED_AT) ? "on" : ""}"></span>`,
+                  ).join("");
+                  meta = `
+            <div><span class="ok">${p.correct}</span> / <span class="bad">${p.wrong}</span> <span style="color:var(--muted)">of ${total}</span></div>
+            <div class="row-streak">${streakHtml}</div>
+          `;
+                }
+                return `
+          <div class="row">
+            <div>
+              <div class="row-state">${state}</div>
+              <div class="row-cap">${capital}</div>
+            </div>
+            <div class="row-meta">${meta}</div>
+          </div>
+        `;
+              })
+              .join("");
+            body.scrollTop = 0;
+          }
+          $("modalBackdrop").classList.add("open");
+        }
+
+        function closeModal() {
+          $("modalBackdrop").classList.remove("open");
+        }
+
+        function renderStreakDots() {
+          if (!current) {
+            streakDotsEl.innerHTML = "";
+            return;
+          }
+          const p = progress[current[0]];
+          const filled = Math.min(p.streak, MASTERED_AT);
+          let html = "";
+          for (let i = 0; i < MASTERED_AT; i++) {
+            html += `<div class="dot ${i < filled ? "on" : ""}"></div>`;
+          }
+          streakDotsEl.innerHTML = html;
+        }
+
+        function showAskingButtons() {
+          buttonRow.innerHTML = "";
+          const submit = document.createElement("button");
+          submit.type = "submit";
+          submit.className = "action submit";
+          submit.id = "submitBtn";
+          submit.textContent = "Check";
+          const dunno = document.createElement("button");
+          dunno.type = "button";
+          dunno.className = "action dunno";
+          dunno.id = "dunnoBtn";
+          dunno.textContent = "I don't know";
+          dunno.addEventListener("click", handleDunno);
+          buttonRow.appendChild(submit);
+          buttonRow.appendChild(dunno);
+        }
+
+        function showNextButton() {
+          buttonRow.innerHTML = "";
+          const next = document.createElement("button");
+          next.type = "button";
+          next.className = "action next";
+          next.textContent = "Next →";
+          next.addEventListener("click", nextCard);
+          buttonRow.appendChild(next);
+        }
+
+        function nextCard() {
+          current = pickNext();
+          lastShown = current[0];
+          phase = "asking";
+          stateNameEl.textContent = current[0];
+          inputEl.value = "";
+          inputEl.className = "";
+          inputEl.disabled = false;
+          feedbackEl.textContent = "";
+          feedbackEl.className = "feedback";
+          showAskingButtons();
+          renderStreakDots();
+          renderStats();
+          setTimeout(() => inputEl.focus({ preventScroll: true }), 0);
+        }
+
+        function handleCorrect() {
+          const p = progress[current[0]];
+          p.correct++;
+          p.streak++;
+          p.seen++;
+          inputEl.className = "correct";
+          inputEl.disabled = true;
+          feedbackEl.innerHTML = `Correct! <span class="answer">${current[1]}</span>`;
+          feedbackEl.className = "feedback good";
+          phase = "revealed";
+          saveProgress();
+          renderStreakDots();
+          renderStats();
+          showNextButton();
+        }
+
+        function handleClose() {
+          // Counts as correct (you knew the answer), but flagged so you can learn the spelling.
+          const p = progress[current[0]];
+          p.correct++;
+          p.streak++;
+          p.seen++;
+          inputEl.className = "close";
+          inputEl.disabled = true;
+          feedbackEl.innerHTML = `Close — spelled <span class="answer">${current[1]}</span>`;
+          feedbackEl.className = "feedback warn";
+          phase = "revealed";
+          saveProgress();
+          renderStreakDots();
+          renderStats();
+          showNextButton();
+        }
+
+        function handleWrong(userAnswer) {
+          const p = progress[current[0]];
+          p.wrong++;
+          p.streak = 0;
+          p.seen++;
+          inputEl.className = "wrong";
+          inputEl.disabled = true;
+          feedbackEl.innerHTML = userAnswer
+            ? `Not quite — it's <span class="answer">${current[1]}</span>`
+            : `It's <span class="answer">${current[1]}</span>`;
+          feedbackEl.className = "feedback bad";
+          phase = "revealed";
+          saveProgress();
+          renderStreakDots();
+          renderStats();
+          showNextButton();
+        }
+
+        function handleDunno() {
+          handleWrong("");
+        }
+
+        formEl.addEventListener("submit", (e) => {
+          e.preventDefault();
+          if (phase === "revealed") {
+            nextCard();
+            return;
+          }
+          const val = inputEl.value;
+          if (!val.trim()) return;
+          const result = classify(val, current[1]);
+          if (result === "exact") handleCorrect();
+          else if (result === "close") handleClose();
+          else handleWrong(val);
+        });
+
+        $("resetBtn").addEventListener("click", () => {
+          if (!confirm("Reset all progress?")) return;
+          localStorage.removeItem(STORAGE_KEY);
+          progress = loadProgress();
+          nextCard();
+        });
+
+        document.querySelectorAll(".stat[data-cat]").forEach((el) => {
+          const open = () => {
+            if (el.getAttribute("aria-disabled") === "true") return;
+            openCategory(el.dataset.cat);
+          };
+          el.addEventListener("click", open);
+          el.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              open();
+            }
+          });
+        });
+
+        $("modalClose").addEventListener("click", closeModal);
+        $("modalBackdrop").addEventListener("click", (e) => {
+          if (e.target === $("modalBackdrop")) closeModal();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") closeModal();
+        });
+
+        nextCard();
+      })();
+    </script>
+  </body>
+</html>
