@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0f172a" />
-    <title>US Capitals Flashcards</title>
+    <title>Capitals Flashcards</title>
     <style>
       :root {
         --bg: #0f172a;
@@ -50,13 +50,13 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 20px;
+        margin-bottom: 14px;
       }
       h1 {
         font-size: 18px;
         font-weight: 600;
         margin: 0;
-        color: var(--muted);
+        color: var(--text);
         letter-spacing: 0.02em;
       }
       .reset-btn {
@@ -67,10 +67,45 @@
         padding: 6px 10px;
         font-size: 12px;
         cursor: pointer;
+        white-space: nowrap;
       }
       .reset-btn:hover {
         color: var(--text);
         border-color: var(--muted);
+      }
+
+      .deck-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .deck-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .deck-select {
+        flex: 1;
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--panel-2);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 14px;
+        font-family: inherit;
+        cursor: pointer;
+        -webkit-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.5'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 32px;
+      }
+      .deck-select:focus {
+        outline: none;
+        border-color: var(--accent);
       }
 
       .stats {
@@ -138,6 +173,9 @@
         line-height: 1.1;
         margin: 12px 0 6px;
         letter-spacing: -0.01em;
+      }
+      .state.long {
+        font-size: 26px;
       }
       .prompt {
         color: var(--muted);
@@ -260,6 +298,9 @@
       @media (max-width: 380px) {
         .state {
           font-size: 30px;
+        }
+        .state.long {
+          font-size: 22px;
         }
         input[type="text"] {
           font-size: 16px;
@@ -390,11 +431,27 @@
   <body>
     <div class="app">
       <header>
-        <h1>US Capitals</h1>
-        <button class="reset-btn" id="resetBtn" title="Reset progress">
-          Reset
+        <h1 id="deckTitle">US States</h1>
+        <button class="reset-btn" id="resetBtn" title="Reset this deck">
+          Reset deck
         </button>
       </header>
+
+      <div class="deck-bar">
+        <label class="deck-label" for="deckSelect">Deck</label>
+        <select class="deck-select" id="deckSelect" aria-label="Choose a deck">
+          <option value="states">US States</option>
+          <optgroup label="World capitals">
+            <option value="world">All countries</option>
+            <option value="africa">Africa</option>
+            <option value="asia">Asia</option>
+            <option value="europe">Europe</option>
+            <option value="northAmerica">North America</option>
+            <option value="southAmerica">South America</option>
+            <option value="oceania">Oceania</option>
+          </optgroup>
+        </select>
+      </div>
 
       <div class="stats">
         <div
@@ -525,23 +582,289 @@
           ["Wyoming", "Cheyenne"],
         ];
 
-        // Accept common alternate spellings
+        // 193 UN member states, grouped by continent so each can be drilled alone.
+        const CONTINENTS = {
+          africa: {
+            label: "Africa",
+            items: [
+              ["Algeria", "Algiers"],
+              ["Angola", "Luanda"],
+              ["Benin", "Porto-Novo"],
+              ["Botswana", "Gaborone"],
+              ["Burkina Faso", "Ouagadougou"],
+              ["Burundi", "Gitega"],
+              ["Cabo Verde", "Praia"],
+              ["Cameroon", "Yaoundé"],
+              ["Central African Republic", "Bangui"],
+              ["Chad", "N'Djamena"],
+              ["Comoros", "Moroni"],
+              ["Republic of the Congo", "Brazzaville"],
+              ["Democratic Republic of the Congo", "Kinshasa"],
+              ["Côte d'Ivoire", "Yamoussoukro"],
+              ["Djibouti", "Djibouti"],
+              ["Egypt", "Cairo"],
+              ["Equatorial Guinea", "Malabo"],
+              ["Eritrea", "Asmara"],
+              ["Eswatini", "Mbabane"],
+              ["Ethiopia", "Addis Ababa"],
+              ["Gabon", "Libreville"],
+              ["Gambia", "Banjul"],
+              ["Ghana", "Accra"],
+              ["Guinea", "Conakry"],
+              ["Guinea-Bissau", "Bissau"],
+              ["Kenya", "Nairobi"],
+              ["Lesotho", "Maseru"],
+              ["Liberia", "Monrovia"],
+              ["Libya", "Tripoli"],
+              ["Madagascar", "Antananarivo"],
+              ["Malawi", "Lilongwe"],
+              ["Mali", "Bamako"],
+              ["Mauritania", "Nouakchott"],
+              ["Mauritius", "Port Louis"],
+              ["Morocco", "Rabat"],
+              ["Mozambique", "Maputo"],
+              ["Namibia", "Windhoek"],
+              ["Niger", "Niamey"],
+              ["Nigeria", "Abuja"],
+              ["Rwanda", "Kigali"],
+              ["São Tomé and Príncipe", "São Tomé"],
+              ["Senegal", "Dakar"],
+              ["Seychelles", "Victoria"],
+              ["Sierra Leone", "Freetown"],
+              ["Somalia", "Mogadishu"],
+              ["South Africa", "Pretoria"],
+              ["South Sudan", "Juba"],
+              ["Sudan", "Khartoum"],
+              ["Tanzania", "Dodoma"],
+              ["Togo", "Lomé"],
+              ["Tunisia", "Tunis"],
+              ["Uganda", "Kampala"],
+              ["Zambia", "Lusaka"],
+              ["Zimbabwe", "Harare"],
+            ],
+          },
+          asia: {
+            label: "Asia",
+            items: [
+              ["Afghanistan", "Kabul"],
+              ["Armenia", "Yerevan"],
+              ["Azerbaijan", "Baku"],
+              ["Bahrain", "Manama"],
+              ["Bangladesh", "Dhaka"],
+              ["Bhutan", "Thimphu"],
+              ["Brunei", "Bandar Seri Begawan"],
+              ["Cambodia", "Phnom Penh"],
+              ["China", "Beijing"],
+              ["Cyprus", "Nicosia"],
+              ["Georgia", "Tbilisi"],
+              ["India", "New Delhi"],
+              ["Indonesia", "Jakarta"],
+              ["Iran", "Tehran"],
+              ["Iraq", "Baghdad"],
+              ["Israel", "Jerusalem"],
+              ["Japan", "Tokyo"],
+              ["Jordan", "Amman"],
+              ["Kazakhstan", "Astana"],
+              ["Kuwait", "Kuwait City"],
+              ["Kyrgyzstan", "Bishkek"],
+              ["Laos", "Vientiane"],
+              ["Lebanon", "Beirut"],
+              ["Malaysia", "Kuala Lumpur"],
+              ["Maldives", "Malé"],
+              ["Mongolia", "Ulaanbaatar"],
+              ["Myanmar", "Naypyidaw"],
+              ["Nepal", "Kathmandu"],
+              ["North Korea", "Pyongyang"],
+              ["Oman", "Muscat"],
+              ["Pakistan", "Islamabad"],
+              ["Philippines", "Manila"],
+              ["Qatar", "Doha"],
+              ["Saudi Arabia", "Riyadh"],
+              ["Singapore", "Singapore"],
+              ["South Korea", "Seoul"],
+              ["Sri Lanka", "Sri Jayawardenepura Kotte"],
+              ["Syria", "Damascus"],
+              ["Tajikistan", "Dushanbe"],
+              ["Thailand", "Bangkok"],
+              ["Timor-Leste", "Dili"],
+              ["Turkey", "Ankara"],
+              ["Turkmenistan", "Ashgabat"],
+              ["United Arab Emirates", "Abu Dhabi"],
+              ["Uzbekistan", "Tashkent"],
+              ["Vietnam", "Hanoi"],
+              ["Yemen", "Sana'a"],
+            ],
+          },
+          europe: {
+            label: "Europe",
+            items: [
+              ["Albania", "Tirana"],
+              ["Andorra", "Andorra la Vella"],
+              ["Austria", "Vienna"],
+              ["Belarus", "Minsk"],
+              ["Belgium", "Brussels"],
+              ["Bosnia and Herzegovina", "Sarajevo"],
+              ["Bulgaria", "Sofia"],
+              ["Croatia", "Zagreb"],
+              ["Czechia", "Prague"],
+              ["Denmark", "Copenhagen"],
+              ["Estonia", "Tallinn"],
+              ["Finland", "Helsinki"],
+              ["France", "Paris"],
+              ["Germany", "Berlin"],
+              ["Greece", "Athens"],
+              ["Hungary", "Budapest"],
+              ["Iceland", "Reykjavík"],
+              ["Ireland", "Dublin"],
+              ["Italy", "Rome"],
+              ["Latvia", "Riga"],
+              ["Liechtenstein", "Vaduz"],
+              ["Lithuania", "Vilnius"],
+              ["Luxembourg", "Luxembourg"],
+              ["Malta", "Valletta"],
+              ["Moldova", "Chișinău"],
+              ["Monaco", "Monaco"],
+              ["Montenegro", "Podgorica"],
+              ["Netherlands", "Amsterdam"],
+              ["North Macedonia", "Skopje"],
+              ["Norway", "Oslo"],
+              ["Poland", "Warsaw"],
+              ["Portugal", "Lisbon"],
+              ["Romania", "Bucharest"],
+              ["Russia", "Moscow"],
+              ["San Marino", "San Marino"],
+              ["Serbia", "Belgrade"],
+              ["Slovakia", "Bratislava"],
+              ["Slovenia", "Ljubljana"],
+              ["Spain", "Madrid"],
+              ["Sweden", "Stockholm"],
+              ["Switzerland", "Bern"],
+              ["Ukraine", "Kyiv"],
+              ["United Kingdom", "London"],
+            ],
+          },
+          northAmerica: {
+            label: "North America",
+            items: [
+              ["Antigua and Barbuda", "Saint John's"],
+              ["Bahamas", "Nassau"],
+              ["Barbados", "Bridgetown"],
+              ["Belize", "Belmopan"],
+              ["Canada", "Ottawa"],
+              ["Costa Rica", "San José"],
+              ["Cuba", "Havana"],
+              ["Dominica", "Roseau"],
+              ["Dominican Republic", "Santo Domingo"],
+              ["El Salvador", "San Salvador"],
+              ["Grenada", "Saint George's"],
+              ["Guatemala", "Guatemala City"],
+              ["Haiti", "Port-au-Prince"],
+              ["Honduras", "Tegucigalpa"],
+              ["Jamaica", "Kingston"],
+              ["Mexico", "Mexico City"],
+              ["Nicaragua", "Managua"],
+              ["Panama", "Panama City"],
+              ["Saint Kitts and Nevis", "Basseterre"],
+              ["Saint Lucia", "Castries"],
+              ["Saint Vincent and the Grenadines", "Kingstown"],
+              ["Trinidad and Tobago", "Port of Spain"],
+              ["United States", "Washington, D.C."],
+            ],
+          },
+          southAmerica: {
+            label: "South America",
+            items: [
+              ["Argentina", "Buenos Aires"],
+              ["Bolivia", "Sucre"],
+              ["Brazil", "Brasília"],
+              ["Chile", "Santiago"],
+              ["Colombia", "Bogotá"],
+              ["Ecuador", "Quito"],
+              ["Guyana", "Georgetown"],
+              ["Paraguay", "Asunción"],
+              ["Peru", "Lima"],
+              ["Suriname", "Paramaribo"],
+              ["Uruguay", "Montevideo"],
+              ["Venezuela", "Caracas"],
+            ],
+          },
+          oceania: {
+            label: "Oceania",
+            items: [
+              ["Australia", "Canberra"],
+              ["Fiji", "Suva"],
+              ["Kiribati", "Tarawa"],
+              ["Marshall Islands", "Majuro"],
+              ["Micronesia", "Palikir"],
+              ["Nauru", "Yaren"],
+              ["New Zealand", "Wellington"],
+              ["Palau", "Ngerulmud"],
+              ["Papua New Guinea", "Port Moresby"],
+              ["Samoa", "Apia"],
+              ["Solomon Islands", "Honiara"],
+              ["Tonga", "Nuku'alofa"],
+              ["Tuvalu", "Funafuti"],
+              ["Vanuatu", "Port Vila"],
+            ],
+          },
+        };
+
+        // Build the deck registry. Continents and a combined "world" deck share
+        // the same per-country progress (keyed by kind), so studying Asia and
+        // then "All countries" carries your streaks across.
+        const CONTINENT_ORDER = [
+          "africa",
+          "asia",
+          "europe",
+          "northAmerica",
+          "southAmerica",
+          "oceania",
+        ];
+        const DECKS = {
+          states: { label: "US States", kind: "state", items: STATES },
+        };
+        let worldItems = [];
+        for (const key of CONTINENT_ORDER) {
+          DECKS[key] = {
+            label: CONTINENTS[key].label,
+            kind: "country",
+            items: CONTINENTS[key].items,
+          };
+          worldItems = worldItems.concat(CONTINENTS[key].items);
+        }
+        DECKS.world = {
+          label: "World — All Countries",
+          kind: "country",
+          items: worldItems,
+        };
+
+        // Accept common alternate spellings (keyed by the canonical capital).
         const ALIASES = {
-          "Saint Paul": ["st paul", "st. paul"],
+          "Saint Paul": ["st paul"],
+          "Washington, D.C.": ["washington", "washington dc", "dc"],
         };
 
         const MASTERED_AT = 4; // streak >= this = mastered
-        const STORAGE_KEY = "us-capitals-progress-v1";
+        const STORAGE_KEY = "capitals-progress-v2";
+        const DECK_KEY = "capitals-deck-v1";
 
         const $ = (id) => document.getElementById(id);
+        const deckTitleEl = $("deckTitle");
+        const deckSelectEl = $("deckSelect");
         const stateNameEl = $("stateName");
         const inputEl = $("answerInput");
         const feedbackEl = $("feedback");
         const formEl = $("answerForm");
-        const submitBtn = $("submitBtn");
-        const dunnoBtn = $("dunnoBtn");
         const buttonRow = $("buttonRow");
         const streakDotsEl = $("streakDots");
+
+        let currentDeckId = "states";
+        try {
+          const saved = localStorage.getItem(DECK_KEY);
+          if (saved && DECKS[saved]) currentDeckId = saved;
+        } catch {}
+
+        const deck = () => DECKS[currentDeckId];
 
         let progress = loadProgress();
         let current = null;
@@ -551,18 +874,9 @@
         function loadProgress() {
           try {
             const raw = localStorage.getItem(STORAGE_KEY);
-            const data = raw ? JSON.parse(raw) : {};
-            // Ensure every state has an entry
-            for (const [s] of STATES) {
-              if (!data[s])
-                data[s] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
-            }
-            return data;
+            return raw ? JSON.parse(raw) : {};
           } catch {
-            const fresh = {};
-            for (const [s] of STATES)
-              fresh[s] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
-            return fresh;
+            return {};
           }
         }
 
@@ -570,11 +884,24 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
         }
 
+        // Progress is keyed by "kind:name" so the US state Georgia and the
+        // country Georgia stay separate, while a country is shared between its
+        // continent deck and the combined world deck.
+        function entryFor(name) {
+          const k = deck().kind + ":" + name;
+          if (!progress[k])
+            progress[k] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
+          return progress[k];
+        }
+
         function normalize(s) {
           return s
             .toLowerCase()
+            .normalize("NFD")
+            .replace(/[̀-ͯ]/g, "") // strip accents
+            .replace(/\bsaint\b/g, "st") // Saint <-> St
+            .replace(/[.,'’ʻ`\-]/g, "")
             .trim()
-            .replace(/[.\-']/g, "")
             .replace(/\s+/g, " ");
         }
 
@@ -602,7 +929,7 @@
 
         // Returns "exact", "close", or "no".
         // Close = small typo (1 edit for short words, up to ~20% of length for longer ones),
-        // but only if no other capital is an equally-good match (avoid mistaken acceptance).
+        // but only if no other capital in the deck is an equally-good match.
         function classify(answer, correct) {
           const a = normalize(answer);
           if (!a) return "no";
@@ -616,47 +943,43 @@
           if (dist > tolerance) return "no";
 
           // Guard: if some other capital is at least as close, treat as wrong.
-          for (const [, otherCap] of STATES) {
+          for (const [, otherCap] of deck().items) {
             if (otherCap === correct) continue;
             if (levenshtein(a, normalize(otherCap)) <= dist) return "no";
           }
           return "close";
         }
 
-        // Weighted pick — wrong answers and low-streak states show up more often.
+        // Weighted pick — wrong answers and low-streak items show up more often.
         function pickNext() {
-          const weights = STATES.map(([state]) => {
-            const p = progress[state];
-            // Base weight
+          const items = deck().items;
+          const weights = items.map(([name]) => {
+            const p = entryFor(name);
             let w = 1;
-            // Boost for past wrongs
             w += p.wrong * 3;
-            // Penalty for streak: each correct-in-a-row halves the weight
             w *= Math.pow(0.5, p.streak);
-            // Mastered states get a small floor so they show occasionally
             if (p.streak >= MASTERED_AT) w = Math.max(w, 0.05);
-            // Brand new states get a boost so we cover them all initially
             if (p.seen === 0) w += 2;
             return w;
           });
 
-          // Avoid repeating the same state twice in a row when possible
-          if (lastShown && STATES.length > 1) {
-            const idx = STATES.findIndex(([s]) => s === lastShown);
+          // Avoid repeating the same item twice in a row when possible.
+          if (lastShown && items.length > 1) {
+            const idx = items.findIndex(([n]) => n === lastShown);
             if (idx >= 0) weights[idx] *= 0.05;
           }
 
           const total = weights.reduce((a, b) => a + b, 0);
           let r = Math.random() * total;
-          for (let i = 0; i < STATES.length; i++) {
+          for (let i = 0; i < items.length; i++) {
             r -= weights[i];
-            if (r <= 0) return STATES[i];
+            if (r <= 0) return items[i];
           }
-          return STATES[STATES.length - 1];
+          return items[items.length - 1];
         }
 
-        function categoryOf(state) {
-          const p = progress[state];
+        function categoryOf(name) {
+          const p = entryFor(name);
           if (p.seen === 0) return "new";
           if (p.streak >= MASTERED_AT) return "mastered";
           return "learning";
@@ -666,8 +989,8 @@
           let mastered = 0,
             learning = 0,
             fresh = 0;
-          for (const [s] of STATES) {
-            const c = categoryOf(s);
+          for (const [name] of deck().items) {
+            const c = categoryOf(name);
             if (c === "mastered") mastered++;
             else if (c === "learning") learning++;
             else fresh++;
@@ -692,9 +1015,13 @@
         };
 
         function openCategory(cat) {
-          const rows = STATES.filter(([s]) => categoryOf(s) === cat).map(
-            ([state, capital]) => ({ state, capital, p: progress[state] }),
-          );
+          const rows = deck()
+            .items.filter(([name]) => categoryOf(name) === cat)
+            .map(([name, capital]) => ({
+              name,
+              capital,
+              p: entryFor(name),
+            }));
 
           if (cat === "learning") {
             // Worst first: most wrongs, then lowest streak
@@ -702,17 +1029,17 @@
               (a, b) =>
                 b.p.wrong - a.p.wrong ||
                 a.p.streak - b.p.streak ||
-                a.state.localeCompare(b.state),
+                a.name.localeCompare(b.name),
             );
           } else if (cat === "mastered") {
             rows.sort(
               (a, b) =>
                 b.p.streak - a.p.streak ||
                 b.p.correct - a.p.correct ||
-                a.state.localeCompare(b.state),
+                a.name.localeCompare(b.name),
             );
           } else {
-            rows.sort((a, b) => a.state.localeCompare(b.state));
+            rows.sort((a, b) => a.name.localeCompare(b.name));
           }
 
           $("modalTitle").innerHTML =
@@ -722,7 +1049,7 @@
             body.innerHTML = `<div class="modal-empty">Nothing here yet.</div>`;
           } else {
             body.innerHTML = rows
-              .map(({ state, capital, p }) => {
+              .map(({ name, capital, p }) => {
                 let meta = "";
                 if (cat === "new") {
                   meta = `<div>—</div>`;
@@ -741,7 +1068,7 @@
                 return `
           <div class="row">
             <div>
-              <div class="row-state">${state}</div>
+              <div class="row-state">${name}</div>
               <div class="row-cap">${capital}</div>
             </div>
             <div class="row-meta">${meta}</div>
@@ -763,7 +1090,7 @@
             streakDotsEl.innerHTML = "";
             return;
           }
-          const p = progress[current[0]];
+          const p = entryFor(current[0]);
           const filled = Math.min(p.streak, MASTERED_AT);
           let html = "";
           for (let i = 0; i < MASTERED_AT; i++) {
@@ -804,6 +1131,7 @@
           lastShown = current[0];
           phase = "asking";
           stateNameEl.textContent = current[0];
+          stateNameEl.classList.toggle("long", current[0].length > 16);
           inputEl.value = "";
           inputEl.className = "";
           inputEl.disabled = false;
@@ -816,7 +1144,7 @@
         }
 
         function handleCorrect() {
-          const p = progress[current[0]];
+          const p = entryFor(current[0]);
           p.correct++;
           p.streak++;
           p.seen++;
@@ -833,7 +1161,7 @@
 
         function handleClose() {
           // Counts as correct (you knew the answer), but flagged so you can learn the spelling.
-          const p = progress[current[0]];
+          const p = entryFor(current[0]);
           p.correct++;
           p.streak++;
           p.seen++;
@@ -849,7 +1177,7 @@
         }
 
         function handleWrong(userAnswer) {
-          const p = progress[current[0]];
+          const p = entryFor(current[0]);
           p.wrong++;
           p.streak = 0;
           p.seen++;
@@ -884,10 +1212,24 @@
           else handleWrong(val);
         });
 
+        deckSelectEl.addEventListener("change", () => {
+          if (!DECKS[deckSelectEl.value]) return;
+          currentDeckId = deckSelectEl.value;
+          try {
+            localStorage.setItem(DECK_KEY, currentDeckId);
+          } catch {}
+          deckTitleEl.textContent = deck().label;
+          lastShown = null;
+          nextCard();
+        });
+
         $("resetBtn").addEventListener("click", () => {
-          if (!confirm("Reset all progress?")) return;
-          localStorage.removeItem(STORAGE_KEY);
-          progress = loadProgress();
+          if (!confirm(`Reset progress for ${deck().label}?`)) return;
+          for (const [name] of deck().items) {
+            delete progress[deck().kind + ":" + name];
+          }
+          saveProgress();
+          lastShown = null;
           nextCard();
         });
 
@@ -913,6 +1255,9 @@
           if (e.key === "Escape") closeModal();
         });
 
+        // Init
+        deckSelectEl.value = currentDeckId;
+        deckTitleEl.textContent = deck().label;
         nextCard();
       })();
     </script>
