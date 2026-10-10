@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "cf dev",
     "check": "node scripts/check-data.js",
-    "deploy": "npm run check && cf deploy"
+    "test": "node scripts/check-data.js && node scripts/test-chase.js",
+    "deploy": "npm test && cf deploy"
   },
   "devDependencies": {
     "cf": "1.0.0-beta.12",
