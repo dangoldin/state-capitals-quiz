@@ -46,6 +46,14 @@
           </optgroup>
         </select>
       </div>
+      <div class="deck-bar">
+        <label class="deck-label" for="topicSelect">Topic</label>
+        <select class="deck-select" id="topicSelect" aria-label="Choose a topic">
+          <option value="capitals">Capitals</option>
+          <option value="flags">Flags</option>
+          <option value="where">Where is it? (map)</option>
+        </select>
+      </div>
 
       <div class="stats">
         <div
@@ -77,7 +85,7 @@
       <div class="card">
         <div class="turn" id="turnBanner" hidden></div>
         <img class="flag" id="flag" alt="" hidden />
-        <div class="prompt">What is the capital of</div>
+        <div class="prompt" id="questionText">What is the capital of</div>
         <div class="state" id="stateName">—</div>
         <div class="name-note" id="nameNote"></div>
         <div class="streak-dots" id="streakDots"></div>

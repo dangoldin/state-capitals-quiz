@@ -92,6 +92,8 @@ Not included:
 
 - **North Korea:** Wikipedia and a flag blog report new proportions (1:1.65) from March 2026. No independent news report confirms it, and the Commons file still uses the old 1:2 shape. The colors and design are the same. **Check this again.**
 
+Look-alike flags: the flags of **Monaco and Indonesia** (red over white) and of **Chad and Romania** (blue, yellow, red) look almost the same. In the Flags topic, the quiz accepts either name and shows a note, and never offers the twin as a wrong option.
+
 Choice about a disputed flag:
 
 - **Afghanistan:** the black, red and green flag (2013–2021). The UN still uses this flag. The government inside the country uses a white flag.

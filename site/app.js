@@ -13,17 +13,39 @@
   // country shares progress between its continent deck and the world deck,
   // while the US state Georgia and the country Georgia stay separate.
   // `group` lets multiple choice prefer wrong options from the same region.
+  // `title` and `subtitle` are the item's line in the Mastered/Learning lists.
+  const TOPICS = { capitals: "Capitals", flags: "Flags", where: "Where is it?" };
+  const continentLabel = Object.fromEntries(CONTINENTS);
+
   const stateItem = ([name, capital, lat, lng]) => ({
     key: "state:" + name,
+    topic: "capitals",
+    question: "What is the capital of",
     prompt: name,
     answer: capital,
     accepted: [capital],
     typoTargets: [capital],
     group: "us",
     map: { kind: "us", id: name, lat, lng },
+    title: name,
+    subtitle: capital,
+  });
+  const stateWhereItem = ([name, capital, lat, lng]) => ({
+    key: "where:us:" + name,
+    topic: "where",
+    question: "Where is",
+    prompt: name,
+    answer: name,
+    accepted: [],
+    group: "us",
+    map: { kind: "us", id: name, lat, lng },
+    title: name,
+    subtitle: "",
   });
   const capitalItem = (c) => ({
     key: "capital:" + c.code,
+    topic: "capitals",
+    question: "What is the capital of",
     prompt: c.name,
     promptNote: c.nameNote,
     answer: c.capital,
@@ -36,25 +58,81 @@
     flag: c.code,
     map: { kind: "world", id: c.code, lat: c.lat, lng: c.lng },
     group: c.continent,
+    title: c.name,
+    subtitle: c.capital,
   });
+  // Flags that look almost the same: either name is accepted, and the twin is
+  // never offered as a wrong option.
+  const FLAG_TWINS = { MC: "ID", ID: "MC", TD: "RO", RO: "TD" };
+  // The country name is the answer, so it shows only after the answer.
+  const flagItem = (c) => {
+    const twin = COUNTRIES.find((t) => t.code === FLAG_TWINS[c.code]);
+    const twinNote = twin
+      ? `This is the flag of ${c.name}. ${twin.name}'s flag looks almost the same.`
+      : "";
+    return {
+      key: "flag:" + c.code,
+      topic: "flags",
+      question: "Which country has this flag?",
+      prompt: "",
+      answer: c.name,
+      accepted: [c.name, ...(c.aka || []), ...(twin ? [twin.name] : [])],
+      typoTargets: [c.name],
+      note: [twinNote, c.nameNote].filter(Boolean).join(" ") || undefined,
+      flag: c.code,
+      map: { kind: "world", id: c.code, lat: c.lat, lng: c.lng },
+      group: c.continent,
+      title: c.name,
+      subtitle: continentLabel[c.continent],
+    };
+  };
+  const whereItem = (c) => ({
+    key: "where:" + c.code,
+    topic: "where",
+    question: "Where is",
+    prompt: c.name,
+    promptNote: c.nameNote,
+    answer: c.name,
+    accepted: [],
+    flag: c.code,
+    map: { kind: "world", id: c.code, lat: c.lat, lng: c.lng },
+    group: c.continent,
+    title: c.name,
+    subtitle: continentLabel[c.continent],
+  });
+  const ITEM_MAKERS = {
+    countries: { capitals: capitalItem, flags: flagItem, where: whereItem },
+    // The app has no data for US state flags.
+    states: { capitals: stateItem, where: stateWhereItem },
+  };
 
   const DECKS = {
-    states: { label: "US States", items: US_STATES.map(stateItem) },
+    states: { label: "US States", source: "states", rows: US_STATES },
   };
   for (const [key, label] of CONTINENTS) {
     DECKS[key] = {
       label,
-      items: COUNTRIES.filter((c) => c.continent === key).map(capitalItem),
+      source: "countries",
+      rows: COUNTRIES.filter((c) => c.continent === key),
     };
   }
-  DECKS.world = {
-    label: "World — All Countries",
-    items: COUNTRIES.map(capitalItem),
-  };
+  DECKS.world = { label: "World — All Countries", source: "countries", rows: COUNTRIES };
+
+  const topicAllowed = (deckId, topic) => !!ITEM_MAKERS[DECKS[deckId].source][topic];
+  const itemCache = new Map();
+  function itemsFor(deckId, topic) {
+    const k = deckId + "/" + topic;
+    if (!itemCache.has(k)) {
+      const d = DECKS[deckId];
+      itemCache.set(k, d.rows.map(ITEM_MAKERS[d.source][topic]));
+    }
+    return itemCache.get(k);
+  }
 
   const MASTERED_AT = 4; // streak >= this = mastered
   const CHOICES = 4; // options shown in easy mode
   const DECK_KEY = "capitals-deck-v1";
+  const TOPIC_KEY = "geo-topic-v1";
   const PLAYERS_KEY = "geo-players-v1";
   const OLD_PROGRESS_KEY = "capitals-progress-v2";
   const MIGRATED_KEY = "geo-migrated-v2"; // set once the v2 progress has moved
@@ -72,6 +150,8 @@
   const stateNameEl = $("stateName");
   const nameNoteEl = $("nameNote");
   const flagEl = $("flag");
+  const questionEl = $("questionText");
+  const topicSelectEl = $("topicSelect");
   const turnEl = $("turnBanner");
   const inputEl = $("answerInput");
   const choicesEl = $("choices");
@@ -101,7 +181,17 @@
     if (saved && DECKS[saved]) currentDeckId = saved;
   } catch {}
 
-  const deck = () => DECKS[currentDeckId];
+  let currentTopic = "capitals";
+  try {
+    const saved = localStorage.getItem(TOPIC_KEY);
+    if (saved && TOPICS[saved] && topicAllowed(currentDeckId, saved)) currentTopic = saved;
+  } catch {}
+
+  const deckItems = () => itemsFor(currentDeckId, currentTopic);
+  const deckLabel = () =>
+    currentTopic === "capitals"
+      ? DECKS[currentDeckId].label
+      : `${DECKS[currentDeckId].label} · ${TOPICS[currentTopic]}`;
   const dialogOpen = () =>
     $("modalBackdrop").classList.contains("open") ||
     $("playersBackdrop").classList.contains("open") ||
@@ -391,7 +481,7 @@
     if (dist > tolerance) return "no";
 
     // Guard: if some other answer is at least as close, treat as wrong.
-    for (const other of deck().items) {
+    for (const other of deckItems()) {
       if (other.key === item.key) continue;
       for (const c of other.accepted) {
         if (levenshtein(a, normalize(c)) <= dist) return "no";
@@ -412,7 +502,7 @@
   // The correct answer plus wrong options. A wrong option is never an
   // accepted answer for this item, and the same region comes first.
   function choicesFor(item) {
-    const others = shuffle(deck().items.filter((o) => o.key !== item.key));
+    const others = shuffle(deckItems().filter((o) => o.key !== item.key));
     others.sort((a, b) => (b.group === item.group) - (a.group === item.group));
     const wrong = [];
     for (const o of others) {
@@ -426,7 +516,7 @@
 
   // Weighted pick — wrong answers and low-streak items show up more often.
   function pickNext() {
-    const items = deck().items;
+    const items = deckItems();
     const weights = items.map((item) => {
       const p = entryFor(item);
       let w = 1;
@@ -463,7 +553,7 @@
     let mastered = 0,
       learning = 0,
       fresh = 0;
-    for (const item of deck().items) {
+    for (const item of deckItems()) {
       const c = categoryOf(item);
       if (c === "mastered") mastered++;
       else if (c === "learning") learning++;
@@ -494,9 +584,9 @@
       : "";
 
   function openCategory(cat) {
-    const rows = deck()
-      .items.filter((item) => categoryOf(item) === cat)
-      .map((item) => ({ item, name: item.prompt, p: entryFor(item) }));
+    const rows = deckItems()
+      .filter((item) => categoryOf(item) === cat)
+      .map((item) => ({ item, name: item.title, p: entryFor(item) }));
 
     if (cat === "learning") {
       // Worst first: most wrongs, then lowest streak
@@ -544,8 +634,8 @@
     <div class="row">
       ${flagHtml(item, "row-flag")}
       <div class="row-main">
-        <div class="row-state">${item.prompt}</div>
-        <div class="row-cap">${item.answer}</div>
+        <div class="row-state">${item.title}</div>
+        <div class="row-cap">${item.subtitle}</div>
       </div>
       <div class="row-meta">${meta}</div>
     </div>
@@ -797,6 +887,24 @@
 
   // Shows the input (Type) or the answer buttons (Easy) for the current card.
   function showQuestion() {
+    if (current.topic === "where") {
+      // The answer is a tap on the map.
+      inputEl.hidden = true;
+      choicesEl.hidden = true;
+      choicesEl.innerHTML = "";
+      buttonRow.innerHTML = "";
+      buttonRow.classList.add("single");
+      const dunno = document.createElement("button");
+      dunno.type = "button";
+      dunno.className = "action dunno";
+      dunno.id = "dunnoBtn";
+      dunno.textContent = "I don't know";
+      dunno.addEventListener("click", handleDunno);
+      buttonRow.appendChild(dunno);
+      feedbackEl.textContent = "Tap it on the map below.";
+      feedbackEl.className = "feedback hint-text";
+      return;
+    }
     const easy = isEasy();
     inputEl.hidden = easy;
     choicesEl.hidden = !easy;
@@ -822,12 +930,16 @@
     lastShown = current.key;
     phase = "asking";
     renderTurn();
+    questionEl.textContent = current.question;
     stateNameEl.textContent = current.prompt;
+    stateNameEl.hidden = !current.prompt;
     stateNameEl.classList.toggle("long", current.prompt.length > 16);
     nameNoteEl.textContent = current.promptNote || "";
+    lastTap = null;
     if (current.flag) {
       flagEl.src = `flags/${current.flag.toLowerCase()}.svg`;
       flagEl.hidden = false;
+      flagEl.classList.toggle("big", current.topic === "flags");
     } else {
       flagEl.removeAttribute("src");
       flagEl.hidden = true;
@@ -953,6 +1065,11 @@
   }
 
   function handleDunno() {
+    if (current.topic === "where") {
+      record(false);
+      reveal(`Here is <span class="answer">${current.answer}</span>.`, "bad");
+      return;
+    }
     handleWrong("");
   }
 
@@ -962,7 +1079,7 @@
       goNext();
       return;
     }
-    if (isEasy()) return;
+    if (isEasy() || current.topic === "where") return;
     const val = inputEl.value;
     if (!val.trim()) return;
     const result = classify(val, current);
@@ -971,13 +1088,35 @@
     else handleWrong(val);
   });
 
+  // Flags is not offered for the US States deck.
+  function renderTopicSelect() {
+    for (const opt of topicSelectEl.options)
+      opt.disabled = !topicAllowed(currentDeckId, opt.value);
+    topicSelectEl.value = currentTopic;
+    deckTitleEl.textContent = deckLabel();
+  }
+
   deckSelectEl.addEventListener("change", () => {
     if (!DECKS[deckSelectEl.value]) return;
     currentDeckId = deckSelectEl.value;
+    if (!topicAllowed(currentDeckId, currentTopic)) currentTopic = "capitals";
     try {
       localStorage.setItem(DECK_KEY, currentDeckId);
+      localStorage.setItem(TOPIC_KEY, currentTopic);
     } catch {}
-    deckTitleEl.textContent = deck().label;
+    renderTopicSelect();
+    lastShown = null;
+    nextCard();
+  });
+
+  topicSelectEl.addEventListener("change", () => {
+    const topic = topicSelectEl.value;
+    if (!TOPICS[topic] || !topicAllowed(currentDeckId, topic)) return;
+    currentTopic = topic;
+    try {
+      localStorage.setItem(TOPIC_KEY, currentTopic);
+    } catch {}
+    renderTopicSelect();
     lastShown = null;
     nextCard();
   });
@@ -986,12 +1125,12 @@
     const p = turnPlayer();
     if (!p) return;
     const ok = await askConfirm(
-      `Reset ${p.name}'s progress for ${deck().label}?`,
+      `Reset ${p.name}'s progress for ${deckLabel()}?`,
       "Reset",
     );
     if (!ok) return;
     const progress = progressOf(p.id);
-    for (const item of deck().items) delete progress[item.key];
+    for (const item of deckItems()) delete progress[item.key];
     saveProgress();
     lastShown = null;
     nextCard();
@@ -1045,7 +1184,7 @@
       return;
     }
     // Easy mode: keys 1-4 pick an answer.
-    if (phase === "asking" && isEasy() && !dialogOpen() && /^[1-9]$/.test(e.key)) {
+    if (phase === "asking" && !choicesEl.hidden && !dialogOpen() && /^[1-9]$/.test(e.key)) {
       choicesEl.querySelector(`.choice[data-key="${e.key}"]`)?.click();
     }
   });
@@ -1150,6 +1289,28 @@
     };
   }
 
+  // "Where is it?" must not give the answer away, so the view never centers
+  // on the country. Easy, and every continent deck, show the continent; Type
+  // on the world deck shows the whole world.
+  function regionProjection(item, extent) {
+    if (currentDeckId === "world" && !isEasy()) {
+      return d3.geoEqualEarth().rotate([-10, 0]).fitExtent(extent, { type: "Sphere" });
+    }
+    const capitals = COUNTRIES.filter((c) => c.continent === item.group);
+    // Mean longitude on the circle, so Oceania does not split at 180°.
+    const x = capitals.reduce((a, c) => a + Math.cos((c.lng * Math.PI) / 180), 0);
+    const y = capitals.reduce((a, c) => a + Math.sin((c.lng * Math.PI) / 180), 0);
+    const lng = (Math.atan2(y, x) * 180) / Math.PI;
+    const circles = capitals.map((c) => ({
+      type: "Feature",
+      geometry: d3.geoCircle().center([c.lng, c.lat]).radius(4)(),
+    }));
+    return d3
+      .geoEqualEarth()
+      .rotate([-lng, 0])
+      .fitExtent(extent, { type: "FeatureCollection", features: circles });
+  }
+
   function drawMap(item, revealed) {
     const m = item.map;
     const capital = [m.lng, m.lat];
@@ -1158,11 +1319,16 @@
       [pad, pad],
       [MAP_W - pad, MAP_H - pad],
     ];
+    const guessing = item.topic === "where" && !revealed;
     let projection, shapes, target;
     if (m.kind === "us") {
       shapes = mapData.states;
       target = mapData.stateById.get(m.id);
       projection = d3.geoAlbersUsa().fitExtent(extent, mapData.nation);
+    } else if (item.topic === "where") {
+      shapes = mapData.countries;
+      target = mapData.countryById.get(m.id);
+      projection = regionProjection(item, extent);
     } else {
       shapes = mapData.countries;
       target = mapData.countryById.get(m.id);
@@ -1194,6 +1360,7 @@
     projection.scale(mapView.baseScale * mapView.k).translate(mapView.translate);
     keepInFrame(projection, m.kind === "world" ? { type: "Sphere" } : mapData.nation);
     lastMapDraw = { item, revealed };
+    lastProjection = projection;
     mapSvgEl.classList.toggle("zoomed", mapView.k !== 1);
 
     const path = d3.geoPath(projection);
@@ -1220,11 +1387,12 @@
       parts.push(`<path class="map-grid" d="${path(d3.geoGraticule10())}"/>`);
     }
     for (const f of shapes) {
-      if (f === target || !inView(f)) continue;
+      if ((f === target && !guessing) || !inView(f)) continue;
       const d = path(f);
-      if (d) parts.push(`<path class="map-land" d="${d}"/>`);
+      const id = f.properties.iso2 || f.properties.name;
+      if (d) parts.push(`<path class="map-land" data-id="${id}" d="${d}"/>`);
     }
-    if (target) {
+    if (target && !guessing) {
       parts.push(`<path class="map-target" d="${path(target)}"/>`);
       // Too small to see: ring each island group (e.g. all of Kiribati).
       if (path.area(target) < 40) {
@@ -1242,6 +1410,14 @@
         ringed = rings.length > 0;
       }
     }
+    // "Where is it?": mark where the player tapped.
+    if (revealed && lastTap && item.topic === "where") {
+      const t = projection(lastTap.lonlat);
+      if (t)
+        parts.push(
+          `<circle class="map-tap ${lastTap.correct ? "good" : "bad"}" cx="${t[0]}" cy="${t[1]}" r="6"/>`,
+        );
+    }
     if (revealed) {
       const p = projection(capital);
       if (p) {
@@ -1255,16 +1431,83 @@
     }
     mapSvgEl.innerHTML = parts.join("");
     const label = mapSvgEl.querySelector(".map-label");
-    if (label) label.textContent = item.answer;
-    const where = item.prompt;
-    mapSvgEl.setAttribute(
-      "aria-label",
-      revealed ? `Map of ${where}, with ${item.answer} marked` : `Map of ${where}`,
-    );
+    // The dot marks the capital; in Flags and Where is it? the label names the country.
+    if (label) label.textContent = item.topic === "capitals" ? item.answer : item.title;
+    const where = item.title;
     const marked = `${where} is ${ringed ? "circled" : "shaded"}.`;
-    mapCaptionEl.textContent = revealed
-      ? `${marked} The dot marks ${item.answer}.`
-      : marked;
+    if (guessing) {
+      mapSvgEl.setAttribute("aria-label", "Map. Tap a place to answer.");
+      mapCaptionEl.textContent = "Tap where you think it is.";
+    } else if (item.topic === "capitals") {
+      mapSvgEl.setAttribute(
+        "aria-label",
+        revealed ? `Map of ${where}, with ${item.answer} marked` : `Map of ${where}`,
+      );
+      mapCaptionEl.textContent = revealed ? `${marked} The dot marks ${item.answer}.` : marked;
+    } else {
+      mapSvgEl.setAttribute("aria-label", `Map of ${where}`);
+      mapCaptionEl.textContent =
+        item.topic === "where" && lastTap
+          ? `${marked} The small circle is where you tapped.`
+          : marked;
+    }
+  }
+
+  // --- "Where is it?" taps ---
+  let lastProjection = null;
+  let lastTap = null; // { lonlat, correct } for the current card
+  const TAP_SLACK = 16; // map units; a near miss counts for a tiny country
+
+  function shapeAt(lonlat, kind) {
+    const shapes = kind === "us" ? mapData.states : mapData.countries;
+    return shapes.find((f) => d3.geoContains(f, lonlat)) || null;
+  }
+
+  function nameOf(shape, kind) {
+    if (!shape) return null;
+    if (kind === "us") return shape.properties.name;
+    return COUNTRIES.find((c) => c.code === shape.properties.iso2)?.name || null;
+  }
+
+  // Distance on screen from (x, y) to the nearest point of a shape.
+  function screenDistance(shape, [x, y]) {
+    let min = Infinity;
+    const walk = (c) => {
+      if (typeof c[0] === "number") {
+        const p = lastProjection(c);
+        if (p) min = Math.min(min, Math.hypot(p[0] - x, p[1] - y));
+      } else c.forEach(walk);
+    };
+    walk(shape.geometry.coordinates);
+    return min;
+  }
+
+  function handleMapTap(point) {
+    if (current?.topic !== "where" || phase !== "asking" || !lastProjection || !mapData) return;
+    const lonlat = lastProjection.invert(point);
+    if (!lonlat || !Number.isFinite(lonlat[0]) || !Number.isFinite(lonlat[1])) return;
+    // Ignore a tap outside the globe.
+    const back = lastProjection(lonlat);
+    if (!back || Math.hypot(back[0] - point[0], back[1] - point[1]) > 1) return;
+    const m = current.map;
+    const target = m.kind === "us" ? mapData.stateById.get(m.id) : mapData.countryById.get(m.id);
+    const tapped = shapeAt(lonlat, m.kind);
+    const tiny = d3.geoPath(lastProjection).area(target) < 300;
+    const correct =
+      tapped === target || (tiny && screenDistance(target, point) <= TAP_SLACK);
+    lastTap = { lonlat, correct };
+    record(correct);
+    if (correct) {
+      reveal(`Correct! <span class="answer">${current.answer}</span>`, "good");
+    } else {
+      const name = nameOf(tapped, m.kind);
+      reveal(
+        name
+          ? `That's ${name}. Here is <span class="answer">${current.answer}</span>.`
+          : `Not quite. Here is <span class="answer">${current.answer}</span>.`,
+        "bad",
+      );
+    }
   }
 
   const sphereBounds = (projection) => d3.geoPath(projection).bounds({ type: "Sphere" });
@@ -1330,14 +1573,20 @@
   }
 
   const pointers = new Map();
+  let tapStart = null; // a press that has not moved far: a tap, not a drag
   mapSvgEl.addEventListener("pointerdown", (e) => {
     mapSvgEl.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, mapPoint(e.clientX, e.clientY));
+    const p = mapPoint(e.clientX, e.clientY);
+    pointers.set(e.pointerId, p);
+    tapStart = pointers.size === 1 ? { id: e.pointerId, p, at: Date.now() } : null;
   });
   mapSvgEl.addEventListener("pointermove", (e) => {
     const prev = pointers.get(e.pointerId);
     if (!prev) return;
     const now = mapPoint(e.clientX, e.clientY);
+    if (tapStart && tapStart.id === e.pointerId &&
+        Math.hypot(now[0] - tapStart.p[0], now[1] - tapStart.p[1]) > 6)
+      tapStart = null;
     if (pointers.size === 1) {
       panBy(now[0] - prev[0], now[1] - prev[1]);
     } else if (pointers.size === 2) {
@@ -1350,8 +1599,16 @@
     }
     pointers.set(e.pointerId, now);
   });
+  mapSvgEl.addEventListener("pointerup", (e) => {
+    if (tapStart && tapStart.id === e.pointerId && Date.now() - tapStart.at < 600)
+      handleMapTap(mapPoint(e.clientX, e.clientY));
+    tapStart = null;
+  });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
-    mapSvgEl.addEventListener(type, (e) => pointers.delete(e.pointerId));
+    mapSvgEl.addEventListener(type, (e) => {
+      pointers.delete(e.pointerId);
+      if (type !== "pointerup") tapStart = null;
+    });
   }
   // Trackpad pinch sends ctrl + wheel. A plain wheel still scrolls the page.
   mapSvgEl.addEventListener(
@@ -1373,10 +1630,23 @@
   $("mapReset").addEventListener("click", resetZoom);
 
   function renderMap(revealed) {
-    $("mapToggle").checked = settings.showMap;
-    mapFigureEl.hidden = !settings.showMap;
-    if (!settings.showMap || !current?.map) return;
+    // "Where is it?" is played on the map, so it always shows.
+    const forced = current?.topic === "where";
+    $("mapToggle").checked = settings.showMap || forced;
+    $("mapToggle").disabled = forced;
+    mapFigureEl.hidden = !(settings.showMap || forced);
+    if (mapFigureEl.hidden || !current?.map) return;
     const item = current;
+    // Flags: the shaded country would give the answer away.
+    if (item.topic === "flags" && !revealed) {
+      mapView = { key: null };
+      lastMapDraw = null;
+      lastProjection = null;
+      mapSvgEl.innerHTML = "";
+      mapSvgEl.setAttribute("aria-label", "Map");
+      mapCaptionEl.textContent = "The map shows the country after the answer.";
+      return;
+    }
     const showError = (message) => {
       mapSvgEl.innerHTML = "";
       mapSvgEl.setAttribute("aria-label", "Map");
@@ -1411,7 +1681,7 @@
     day: "numeric",
   });
   deckSelectEl.value = currentDeckId;
-  deckTitleEl.textContent = deck().label;
+  renderTopicSelect();
   renderPlayerButton();
   nextCard();
   // Each session starts by choosing who plays.

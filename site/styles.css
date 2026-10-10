@@ -165,6 +165,10 @@ button.action,
 .deck-label {
   font-size: 14px;
   color: var(--muted);
+  min-width: 46px;
+}
+.deck-bar + .deck-bar {
+  margin-top: -8px;
 }
 .deck-select {
   flex: 1;
@@ -267,6 +271,18 @@ button.action,
 }
 .flag[hidden] {
   display: none;
+}
+.flag.big {
+  height: 140px;
+  max-width: 100%;
+  margin-bottom: 22px;
+}
+.state[hidden] {
+  display: none;
+}
+.feedback.hint-text {
+  color: var(--ink-soft);
+  font-style: italic;
 }
 .prompt {
   color: var(--muted);
@@ -1018,4 +1034,18 @@ button.danger:hover {
 .segmented button.on {
   background: var(--ink);
   color: var(--paper);
+}
+
+.map-tap {
+  fill: none;
+  stroke-width: 2.5;
+}
+.map-tap.good {
+  stroke: var(--good);
+}
+.map-tap.bad {
+  stroke: var(--bad);
+}
+.map-toggle input:disabled {
+  cursor: default;
 }

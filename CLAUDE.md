@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-The project is a geography flashcard quiz for children: US state capitals and the capitals of the 193 UN member states. Later phases add flags, currencies, languages, a map, points, and games (see `.omc/plans/geo-games-plan.md` when it exists locally).
+The project is a geography flashcard quiz for children. A deck (US States, a continent, or the world) is played in a topic: **Capitals**, **Flags** (not for US States), or **Where is it?** (tap the place on the map). Later phases add currencies, languages, and more games (see `.omc/plans/geo-games-plan.md` when it exists locally).
 
 The app is static, with no build step and no CI. Only the files in `site/` are published:
 
@@ -52,16 +52,23 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
 
 ## Architecture
 
-- **Deck items.** `app.js` changes the data into deck items: `{ key, prompt, answer, accepted, typoTargets, note, flag, group }`. Easy mode takes its wrong options from other items in the deck, from the same `group` (continent) first. The `key` names the progress entry: `capital:<code>` for countries and `state:<name>` for US states. A country shares one entry between its continent deck and the `world` deck. The US state Georgia and the country Georgia stay separate.
-- **Deck selector.** The `<select id="deckSelect">` options are hardcoded in `index.html`. When you add a deck, update `DECKS` in `app.js` and the `<option>` list together.
+- **Decks, topics, and items.** `DECKS` holds the rows of each deck (countries or US states). `itemsFor(deckId, topic)` makes the deck items with `ITEM_MAKERS` and caches them. An item is `{ key, topic, question, prompt, answer, accepted, typoTargets, note, flag, map, group, title, subtitle }`. `title` and `subtitle` are its line in the Mastered/Learning lists.
+  - Progress keys: `capital:<code>`, `state:<name>`, `flag:<code>`, `where:<code>`, `where:us:<name>`. So each topic has separate progress, a country shares one entry between its continent deck and the `world` deck, and the US state Georgia and the country Georgia stay separate.
+  - Easy mode takes its wrong options from other items in the deck, from the same `group` (continent) first, and never from `accepted`.
+  - Flags: the name shows only after the answer, and the map stays empty until then. `FLAG_TWINS` (Monaco/Indonesia, Chad/Romania) accepts either name, so the twin is never a wrong option.
+  - Where is it?: the map is the answer. It always shows, even when "Show map" is off. While the player guesses, `regionProjection()` shows the continent (Easy, or any continent deck) or the whole world (Type on the world deck), never centered on the answer. `handleMapTap()` checks `d3.geoContains`; for a tiny place (under 300 map units²), a tap within 16 units also counts. A tap is a press that moves less than 6 units and lasts less than 600 ms, so a drag never answers.
+- **Selectors.** The `<select id="deckSelect">` and `<select id="topicSelect">` options are hardcoded in `index.html`. When you add a deck or a topic, update `DECKS` / `TOPICS` / `ITEM_MAKERS` in `app.js` and the `<option>` list together.
 - **Players and turns.** Each session starts on the "Who is playing?" dialog. There, players are added, selected for this game, and given a level: `easy` (4 answer buttons) or `type`. `players.playing` is the turn order. `goNext()` passes the turn after each card. Progress, stats, and `pickNext()` always use the player whose turn it is (`turnPlayer()`).
 - **Storage.** All storage is `localStorage`, on one device.
   - `geo-players-v1`: `{ list: [{ id, name, avatar, level }], playing: [id], turn }`.
   - `geo-progress-v3:<playerId>`: progress for each player.
-  - `capitals-deck-v1`: the last deck.
+  - `geo-stats-v1:<playerId>`: points, `{ total, week, weekPoints }`. `week` is the Monday of the week.
+  - `geo-settings-v1`: `{ showMap, scoreMode }`.
+  - `capitals-deck-v1` and `geo-topic-v1`: the last deck and topic.
   - `capitals-progress-v2` is the old single-player data. The first player ever gets it through `migrateV2Progress()`. Then `geo-migrated-v2` stops a second migration. When you change the stored data shape, add a new versioned key and a migration.
 - **Dialogs.** An open dialog sets `inert` on `.app`. Escape closes only the top dialog. Never use `alert()` or `confirm()`: some browsers and app previews block them silently. Use `askConfirm(message, okLabel)`, which returns a Promise.
-- **New game** (`newGame()`) deletes every `geo-*` and `capitals-*` key, then sets `geo-migrated-v2`, so old v2 progress never comes back.
+- **New game** (`newGame()`) deletes every `geo-*` and `capitals-*` key, then sets `geo-migrated-v2`, so old v2 progress never comes back. It also resets the settings.
+- **Score.** "Keep score" in "Who is playing?" is `off` (the default, to keep the game less competitive), `team`, or `each`. `awardPoints()` runs on every answer, also when scoring is off, and saves the points. 10 points for Easy, 20 for Type, +5 from the third correct answer in a row; a wrong answer removes nothing. The session scores (`session`) reset at Start.
 - **Answer matching.** `classify()` returns `"exact"`, `"close"`, or `"no"`.
   - `normalize()` removes accents and punctuation, and changes "Saint" to "St".
   - `accepted` must match exactly. Typos are allowed only against `typoTargets` (the capital and `capitalAlso`), so a short spelling like "DC" never accepts "d".
