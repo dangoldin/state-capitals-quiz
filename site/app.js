@@ -77,7 +77,7 @@
       prompt: "",
       answer: c.name,
       accepted: [c.name, ...(c.aka || []), ...(twin ? [twin.name] : [])],
-      typoTargets: [c.name],
+      typoTargets: [c.name, ...(c.aka || [])],
       note: [twinNote, c.nameNote].filter(Boolean).join(" ") || undefined,
       flag: c.code,
       map: { kind: "world", id: c.code, lat: c.lat, lng: c.lng },
@@ -258,7 +258,7 @@
     const run = (session.run[p.id] || 0) + 1;
     session.run[p.id] = run;
     const bonus = run >= POINTS.runFrom ? POINTS.runBonus : 0;
-    const points = (isEasy() ? POINTS.easy : POINTS.type) + bonus;
+    const points = (hardTask() ? POINTS.type : POINTS.easy) + bonus;
     session.team += points;
     session.byPlayer[p.id] = (session.byPlayer[p.id] || 0) + points;
     const stats = statsOf(p.id);
@@ -266,6 +266,14 @@
     stats.weekPoints += points;
     writeJSON(statsKey(p.id), stats);
     return { points, bonus, run };
+  }
+
+  // "Where is it?" is the same tap for both levels, except that Type on the
+  // world deck shows the whole world. The points follow the task.
+  function hardTask() {
+    if (current?.topic === "where")
+      return current.map.kind === "world" && currentDeckId === "world" && !isEasy();
+    return !isEasy();
   }
 
   function scoreChip(label, points, active) {
@@ -355,6 +363,7 @@
     delete progressById[id];
     try {
       localStorage.removeItem(progressKey(id));
+      localStorage.removeItem(statsKey(id));
     } catch {}
     savePlayers();
     renderPlayers();
@@ -484,6 +493,9 @@
     for (const other of deckItems()) {
       if (other.key === item.key) continue;
       for (const c of other.accepted) {
+        // A shared answer (e.g. the twin flags Monaco and Indonesia) is not
+        // a different answer.
+        if (isAccepted(item, c)) continue;
         if (levenshtein(a, normalize(c)) <= dist) return "no";
       }
     }
@@ -822,6 +834,8 @@
     renderStats();
     renderStreakDots();
     renderScore();
+    // The level may have changed, and "Where is it?" shows a different view.
+    renderMap(phase === "revealed");
   }
 
   function renderStreakDots() {
@@ -1463,18 +1477,20 @@
     return shapes.find((f) => d3.geoContains(f, lonlat)) || null;
   }
 
+  // The name of a state or UN member, or null (sea, D.C., a territory, or an
+  // area that is not a UN member).
   function nameOf(shape, kind) {
     if (!shape) return null;
-    if (kind === "us") return shape.properties.name;
+    if (kind === "us") return US_STATES.find(([s]) => s === shape.properties.name)?.[0] || null;
     return COUNTRIES.find((c) => c.code === shape.properties.iso2)?.name || null;
   }
 
   // Distance on screen from (x, y) to the nearest point of a shape.
-  function screenDistance(shape, [x, y]) {
+  function screenDistance(shape, [x, y], projection) {
     let min = Infinity;
     const walk = (c) => {
       if (typeof c[0] === "number") {
-        const p = lastProjection(c);
+        const p = projection(c);
         if (p) min = Math.min(min, Math.hypot(p[0] - x, p[1] - y));
       } else c.forEach(walk);
     };
@@ -1482,19 +1498,23 @@
     return min;
   }
 
-  function handleMapTap(point) {
-    if (current?.topic !== "where" || phase !== "asking" || !lastProjection || !mapData) return;
-    const lonlat = lastProjection.invert(point);
+  // `projection` is the map as it was when the finger went down.
+  function handleMapTap(point, projection) {
+    if (current?.topic !== "where" || phase !== "asking" || !projection || !mapData) return;
+    const lonlat = projection.invert(point);
     if (!lonlat || !Number.isFinite(lonlat[0]) || !Number.isFinite(lonlat[1])) return;
     // Ignore a tap outside the globe.
-    const back = lastProjection(lonlat);
+    const back = projection(lonlat);
     if (!back || Math.hypot(back[0] - point[0], back[1] - point[1]) > 1) return;
     const m = current.map;
     const target = m.kind === "us" ? mapData.stateById.get(m.id) : mapData.countryById.get(m.id);
     const tapped = shapeAt(lonlat, m.kind);
-    const tiny = d3.geoPath(lastProjection).area(target) < 300;
+    // A near miss counts only for a tiny place, and only in the sea or in an
+    // area that is not a UN member (or, on the US map, not a state).
+    const tiny = d3.geoPath(projection).area(target) < 300;
     const correct =
-      tapped === target || (tiny && screenDistance(target, point) <= TAP_SLACK);
+      tapped === target ||
+      (tiny && !nameOf(tapped, m.kind) && screenDistance(target, point, projection) <= TAP_SLACK);
     lastTap = { lonlat, correct };
     record(correct);
     if (correct) {
@@ -1566,27 +1586,47 @@
     if (lastMapDraw) drawMap(lastMapDraw.item, lastMapDraw.revealed);
   }
 
-  // Screen position to map (viewBox) units.
+  // Screen position to map (viewBox) units. The map is drawn inside the
+  // border, so measure the box without it.
   function mapPoint(clientX, clientY) {
     const r = mapSvgEl.getBoundingClientRect();
-    return [((clientX - r.left) * MAP_W) / r.width, ((clientY - r.top) * MAP_H) / r.height];
+    const left = r.left + mapSvgEl.clientLeft;
+    const top = r.top + mapSvgEl.clientTop;
+    return [
+      ((clientX - left) * MAP_W) / mapSvgEl.clientWidth,
+      ((clientY - top) * MAP_H) / mapSvgEl.clientHeight,
+    ];
   }
 
   const pointers = new Map();
   let tapStart = null; // a press that has not moved far: a tap, not a drag
+  let pendingTap = null; // a tap waits briefly, so a double-click can zoom
+  const TAP_WAIT = 250;
   mapSvgEl.addEventListener("pointerdown", (e) => {
     mapSvgEl.setPointerCapture(e.pointerId);
     const p = mapPoint(e.clientX, e.clientY);
     pointers.set(e.pointerId, p);
-    tapStart = pointers.size === 1 ? { id: e.pointerId, p, at: Date.now() } : null;
+    // A second press soon after a tap is a double-click: cancel the tap,
+    // and this press is not a tap either.
+    const secondClick = !!pendingTap;
+    if (pendingTap) {
+      clearTimeout(pendingTap);
+      pendingTap = null;
+    }
+    tapStart =
+      pointers.size === 1 && !secondClick
+        ? { id: e.pointerId, p, at: Date.now(), projection: lastProjection }
+        : null;
   });
   mapSvgEl.addEventListener("pointermove", (e) => {
     const prev = pointers.get(e.pointerId);
     if (!prev) return;
     const now = mapPoint(e.clientX, e.clientY);
-    if (tapStart && tapStart.id === e.pointerId &&
-        Math.hypot(now[0] - tapStart.p[0], now[1] - tapStart.p[1]) > 6)
+    if (tapStart && tapStart.id === e.pointerId) {
+      // Still a possible tap: do not move the map yet.
+      if (Math.hypot(now[0] - tapStart.p[0], now[1] - tapStart.p[1]) <= 6) return;
       tapStart = null;
+    }
     if (pointers.size === 1) {
       panBy(now[0] - prev[0], now[1] - prev[1]);
     } else if (pointers.size === 2) {
@@ -1600,8 +1640,13 @@
     pointers.set(e.pointerId, now);
   });
   mapSvgEl.addEventListener("pointerup", (e) => {
-    if (tapStart && tapStart.id === e.pointerId && Date.now() - tapStart.at < 600)
-      handleMapTap(mapPoint(e.clientX, e.clientY));
+    if (tapStart && tapStart.id === e.pointerId && Date.now() - tapStart.at < 600) {
+      const { p, projection } = tapStart;
+      pendingTap = setTimeout(() => {
+        pendingTap = null;
+        handleMapTap(p, projection);
+      }, TAP_WAIT);
+    }
     tapStart = null;
   });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
@@ -1622,6 +1667,10 @@
     { passive: false },
   );
   mapSvgEl.addEventListener("dblclick", (e) => {
+    if (pendingTap) {
+      clearTimeout(pendingTap);
+      pendingTap = null;
+    }
     const [x, y] = mapPoint(e.clientX, e.clientY);
     zoomAt(x, y, 2);
   });
