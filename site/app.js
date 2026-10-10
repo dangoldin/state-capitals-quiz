@@ -957,14 +957,25 @@
   let mapData = null;
   let mapLoading = null;
 
+  // Each script loads once. After a failure, only the failed script is
+  // fetched again on the next try.
+  const scriptLoads = new Map();
   function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const el = document.createElement("script");
-      el.src = src;
-      el.onload = resolve;
-      el.onerror = () => reject(new Error("Could not load " + src));
-      document.head.appendChild(el);
-    });
+    if (!scriptLoads.has(src)) {
+      const load = new Promise((resolve, reject) => {
+        const el = document.createElement("script");
+        el.src = src;
+        el.onload = resolve;
+        el.onerror = () => {
+          el.remove();
+          scriptLoads.delete(src);
+          reject(new Error("Could not load " + src));
+        };
+        document.head.appendChild(el);
+      });
+      scriptLoads.set(src, load);
+    }
+    return scriptLoads.get(src);
   }
 
   function loadMap() {
@@ -997,6 +1008,10 @@
           stateById: new Map(states.map((f) => [f.properties.name, f])),
           nation: topojson.feature(u, u.objects.nation),
         };
+      })
+      .catch((err) => {
+        mapLoading = null; // try again on the next card
+        throw err;
       });
     }
     return mapLoading;
@@ -1251,16 +1266,24 @@
     mapFigureEl.hidden = !settings.showMap;
     if (!settings.showMap || !current?.map) return;
     const item = current;
-    loadMap()
-      .then(() => {
+    const showError = (message) => {
+      mapSvgEl.innerHTML = "";
+      mapSvgEl.setAttribute("aria-label", "Map");
+      mapCaptionEl.textContent = message;
+    };
+    loadMap().then(
+      () => {
         // Skip if the card changed while the map was loading.
-        if (item === current) drawMap(item, revealed);
-      })
-      .catch(() => {
-        mapLoading = null;
-        mapSvgEl.innerHTML = "";
-        mapCaptionEl.textContent = "The map could not load.";
-      });
+        if (item !== current) return;
+        try {
+          drawMap(item, revealed);
+        } catch (err) {
+          console.error(err);
+          showError("The map could not be drawn.");
+        }
+      },
+      () => showError("The map could not load."),
+    );
   }
 
   $("mapToggle").addEventListener("change", (e) => {
