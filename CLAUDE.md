@@ -57,7 +57,8 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
   - `geo-progress-v3:<playerId>`: progress for each player.
   - `capitals-deck-v1`: the last deck.
   - `capitals-progress-v2` is the old single-player data. The first player ever gets it through `migrateV2Progress()`. Then `geo-migrated-v2` stops a second migration. When you change the stored data shape, add a new versioned key and a migration.
-- **Dialogs.** An open dialog sets `inert` on `.app`. `closePlayers()` and `closeModal()` do nothing if their dialog is not open, because Escape calls both.
+- **Dialogs.** An open dialog sets `inert` on `.app`. Escape closes only the top dialog. Never use `alert()` or `confirm()`: some browsers and app previews block them silently. Use `askConfirm(message, okLabel)`, which returns a Promise.
+- **New game** (`newGame()`) deletes every `geo-*` and `capitals-*` key, then sets `geo-migrated-v2`, so old v2 progress never comes back.
 - **Answer matching.** `classify()` returns `"exact"`, `"close"`, or `"no"`.
   - `normalize()` removes accents and punctuation, and changes "Saint" to "St".
   - `accepted` must match exactly. Typos are allowed only against `typoTargets` (the capital and `capitalAlso`), so a short spelling like "DC" never accepts "d".

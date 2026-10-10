@@ -97,7 +97,8 @@
   const deck = () => DECKS[currentDeckId];
   const dialogOpen = () =>
     $("modalBackdrop").classList.contains("open") ||
-    $("playersBackdrop").classList.contains("open");
+    $("playersBackdrop").classList.contains("open") ||
+    $("confirmBackdrop").classList.contains("open");
 
   // players: { list: [{ id, name, avatar, level }], playing: [id], turn }
   // `playing` is the turn order of this game; level is "easy" or "type".
@@ -192,6 +193,32 @@
     playerById(id).level = level;
     savePlayers();
     renderPlayers();
+  }
+
+  // New game: delete every player and all saved progress on this device.
+  async function newGame() {
+    const ok = await askConfirm(
+      "Start a new game? This deletes every player and all progress on this device.",
+      "Delete all",
+    );
+    if (!ok) return;
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith("geo-") || key.startsWith("capitals-"))
+          localStorage.removeItem(key);
+      }
+    } catch {}
+    // The old v2 progress is deleted too, so never migrate it again.
+    writeJSON(MIGRATED_KEY, true);
+    players.list = [];
+    players.playing = [];
+    players.turn = 0;
+    for (const id of Object.keys(progressById)) delete progressById[id];
+    savePlayers();
+    renderPlayerButton();
+    lastShown = null;
+    nextCard();
+    openPlayers();
   }
 
   // Start (or restart) the game with the selected players, first in line first.
@@ -450,6 +477,29 @@
     document.querySelector(".app").inert = on;
   }
 
+  // In-app confirmation. Some browsers and app previews block confirm(),
+  // which then returns false without showing anything.
+  let confirmResolve = null;
+  function askConfirm(message, okLabel) {
+    $("confirmText").textContent = message;
+    $("confirmOk").textContent = okLabel;
+    $("confirmBackdrop").classList.add("open");
+    setInert(true);
+    $("playersBackdrop").inert = true;
+    $("confirmCancel").focus({ preventScroll: true });
+    return new Promise((resolve) => (confirmResolve = resolve));
+  }
+
+  function answerConfirm(ok) {
+    if (!confirmResolve) return;
+    $("confirmBackdrop").classList.remove("open");
+    $("playersBackdrop").inert = false;
+    if (!dialogOpen()) setInert(false);
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    resolve(ok);
+  }
+
   // The header button lists everyone in this game.
   function renderPlayerButton() {
     const playing = players.playing.map(playerById);
@@ -516,17 +566,21 @@
       remove.className = "player-remove";
       remove.setAttribute("aria-label", "Remove " + p.name);
       remove.textContent = "×";
-      remove.addEventListener("click", () => {
-        if (!confirm(`Remove ${p.name} and all of their progress?`)) return;
-        removePlayer(p.id);
+      remove.addEventListener("click", async () => {
+        const ok = await askConfirm(
+          `Remove ${p.name}? This deletes all of ${p.name}'s progress.`,
+          "Remove",
+        );
+        if (ok) removePlayer(p.id);
       });
 
       row.append(pick, level, remove);
       list.appendChild(row);
     }
     $("playersHint").textContent = players.list.length
-      ? "Tap names to choose who plays. Turns go in the order of the numbers."
+      ? "Tap a name to add or drop that player from this game. Turns go in the order of the numbers. × deletes a player."
       : "Add each player. Then press Start.";
+    $("newGameBtn").hidden = players.list.length === 0;
 
     const picker = $("avatarPicker");
     picker.innerHTML = "";
@@ -813,10 +867,14 @@
     nextCard();
   });
 
-  $("resetBtn").addEventListener("click", () => {
+  $("resetBtn").addEventListener("click", async () => {
     const p = turnPlayer();
     if (!p) return;
-    if (!confirm(`Reset ${p.name}'s progress for ${deck().label}?`)) return;
+    const ok = await askConfirm(
+      `Reset ${p.name}'s progress for ${deck().label}?`,
+      "Reset",
+    );
+    if (!ok) return;
     const progress = progressOf(p.id);
     for (const item of deck().items) delete progress[item.key];
     saveProgress();
@@ -846,6 +904,9 @@
   $("playerBtn").addEventListener("click", openPlayers);
   $("playersClose").addEventListener("click", closePlayers);
   $("startBtn").addEventListener("click", startGame);
+  $("newGameBtn").addEventListener("click", newGame);
+  $("confirmOk").addEventListener("click", () => answerConfirm(true));
+  $("confirmCancel").addEventListener("click", () => answerConfirm(false));
   $("playersBackdrop").addEventListener("click", (e) => {
     if (e.target === $("playersBackdrop")) closePlayers();
   });
@@ -860,8 +921,10 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      closeModal();
-      closePlayers();
+      // Close only the top dialog.
+      if (confirmResolve) answerConfirm(false);
+      else if ($("modalBackdrop").classList.contains("open")) closeModal();
+      else closePlayers();
       return;
     }
     // Easy mode: keys 1-4 pick an answer.

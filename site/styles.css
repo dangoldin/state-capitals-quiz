@@ -739,3 +739,47 @@ button.action:disabled {
   padding: 0 20px 20px;
   display: grid;
 }
+
+.new-game-btn {
+  justify-self: center;
+  margin-top: 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--bad);
+  border-radius: 0;
+  padding: 2px 0;
+  color: var(--bad);
+  font-size: 15px;
+  font-style: italic;
+  cursor: pointer;
+}
+.new-game-btn[hidden] {
+  display: none;
+}
+
+/* Confirmation dialog, above the other dialogs */
+.confirm-backdrop {
+  z-index: 60;
+  align-items: center;
+}
+.modal.confirm {
+  max-width: 400px;
+  padding: 22px 20px 20px;
+  border-top: 3px double var(--ink);
+}
+.confirm-text {
+  font-family: var(--serif-display);
+  font-size: 19px;
+  line-height: 1.4;
+  margin: 0 0 18px;
+  text-align: center;
+}
+button.danger {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: var(--paper);
+}
+button.danger:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}

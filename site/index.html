@@ -165,7 +165,30 @@
             <button type="button" class="action next" id="startBtn" disabled>
               Start
             </button>
+            <button type="button" class="new-game-btn" id="newGameBtn" hidden>
+              New game — delete all players
+            </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal-backdrop confirm-backdrop"
+      id="confirmBackdrop"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirmText"
+    >
+      <div class="modal confirm" role="document">
+        <p class="confirm-text" id="confirmText"></p>
+        <div class="buttons">
+          <button type="button" class="action dunno" id="confirmCancel">
+            Cancel
+          </button>
+          <button type="button" class="action danger" id="confirmOk">
+            OK
+          </button>
         </div>
       </div>
     </div>
