@@ -27,7 +27,7 @@ const normalize = (s) =>
   s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\bsaint\b/g, "st")
     .replace(/[.,'’ʻ`\-]/g, "")
     .trim()

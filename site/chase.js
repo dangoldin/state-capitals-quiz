@@ -12,6 +12,7 @@
   const LEVEL_KEY = "chase-level-v1";
   const AVATARS = ["🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁"];
   const SPARE_DAYS = 3; // days for wrong guesses, on top of one per flight
+  const CASE_NO_KEY = "chase-next-case-v1";
   const LEVEL_NOTES = {
     easy: "Easy: pick the next country from four cards. Clear clues, three flights.",
     normal: "Normal: tap the next country on the map. Clues work together, four flights.",
@@ -53,7 +54,7 @@
     return s
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/\bsaint\b/g, "st")
       .replace(/[.,'’ʻ`\-]/g, "")
       .trim()
@@ -71,27 +72,52 @@
     }
     return prev[b.length];
   }
-  // The country a typed name means: an exact name or other name, or a small
-  // typo of exactly one country's name.
+  // Everyday names a child may type, in addition to `name` and `aka` in data.js.
+  const TYPED_NAMES = {
+    US: ["US", "America", "United States of America"],
+    GB: ["England", "Scotland", "Wales", "Northern Ireland"],
+    NL: ["Holland"],
+    BA: ["Bosnia"],
+    CZ: ["Czech"],
+    MK: ["Macedonia"],
+    KN: ["Saint Kitts", "St Kitts"],
+    AE: ["Emirates"],
+    DO: ["Dominican"],
+    KP: ["North Korea", "N Korea"],
+    KR: ["South Korea", "S Korea"],
+    VC: ["Saint Vincent", "St Vincent"],
+    TT: ["Trinidad"],
+    AG: ["Antigua"],
+    ST: ["Sao Tome"],
+    PG: ["Papua"],
+  };
+  const typedNames = COUNTRIES.flatMap((c) =>
+    [c.name, ...(c.aka || []), ...(TYPED_NAMES[c.code] || [])].map((n) => [normalize(n), c.code]),
+  );
+  // The country a typed name means: an exact name, or a small typo of exactly
+  // one name. The typo allowance comes from the name that matched, and text
+  // shorter than 3 letters must match exactly ("q" is not "UK").
   function countryFromText(text) {
     const t = normalize(text);
     if (!t) return null;
-    const names = COUNTRIES.flatMap((c) => [c.name, ...(c.aka || [])].map((n) => [normalize(n), c.code]));
-    const exact = names.find(([n]) => n === t);
+    const exact = typedNames.find(([n]) => n === t);
     if (exact) return exact[1];
+    if (t.length < 3) return null;
     let best = null;
     let bestDist = Infinity;
+    let bestLen = 0;
     let tie = false;
-    for (const [n, code] of names) {
+    for (const [n, code] of typedNames) {
+      if (n.length < 4) continue; // short names ("uk", "drc") must match exactly
       const d = levenshtein(t, n);
       if (d < bestDist) {
         best = code;
         bestDist = d;
+        bestLen = n.length;
         tie = false;
       } else if (d === bestDist && code !== best) tie = true;
     }
-    const bestName = normalize(byCode[best].name);
-    return !tie && bestDist <= Math.max(1, Math.round(bestName.length / 5)) ? best : null;
+    return best && !tie && bestDist <= Math.max(1, Math.round(bestLen / 5)) ? best : null;
   }
 
   // --- Screens
@@ -176,14 +202,17 @@
       c,
       step: 0,
       day: 1,
-      days: c.steps.length + SPARE_DAYS,
+      // Day 1 is the start; every flight and wrong accusation takes a day.
+      days: c.steps.length + 1 + SPARE_DAYS,
       turn: 0,
       detectives: players.playing.slice(),
       extra: c.steps.map(() => []),
       notes: [],
       flown: [c.start],
     };
-    const caseNo = readJSON(CASEBOOK_KEY, []).length + 1;
+    // Case numbers never repeat, also when a case is left unfinished.
+    const caseNo = Math.max(readJSON(CASE_NO_KEY, 1), readJSON(CASEBOOK_KEY, []).length + 1);
+    writeJSON(CASE_NO_KEY, caseNo + 1);
     $("caseNo").textContent = caseNo;
     game.caseNo = caseNo;
     $("caseHeadline").textContent = `Stolen: ${c.loot}!`;
@@ -327,6 +356,12 @@
       $("chaseFeedback").className = "feedback warn";
       return;
     }
+    // A place we already checked costs nothing.
+    if ((game.wrongHere || []).includes(code)) {
+      $("chaseFeedback").textContent = `We already checked ${byCode[code].name}: the thief was not there. Try another country.`;
+      $("chaseFeedback").className = "feedback warn";
+      return;
+    }
     // Every flight takes a day, and the next detective has the next turn.
     const who = detective();
     game.day += 1;
@@ -335,28 +370,34 @@
       game.flown.push(code);
       game.wrongHere = [];
       game.step += 1;
+      if (game.day > game.days) return endCase(false);
       const found = `Right, ${who.name}! Someone saw the thief at the airport in ${placeOf(code)}. We're on the trail!`;
       if (game.step >= game.c.steps.length) return showLineup(found);
-      if (game.day > game.days) return endCase(false);
       return showCity(found);
     }
-    // Dead end: a day is lost, and a new clue helps.
+    // Dead end: a day is lost, and a new clue of a new type helps.
     (game.wrongHere ||= []).push(code);
-    const extra = game.extra[game.step];
-    if (!extra.length) extra.push(E.extraClue(s.to));
     if (game.day > game.days) return endCase(false);
+    const extra = game.extra[game.step];
+    const added = E.extraClue(s.to, [...s.clues, ...extra].map((cl) => cl.type));
+    if (added) extra.push(added);
     showCity(
       `Dead end in ${placeOf(code)}: nobody there has seen the thief. ` +
-        `Good try, ${who.name}! We fly back to ${cityOf(s.from)} and lose a day. Read the new clue.`,
+        `Good try, ${who.name}! We fly back to ${cityOf(s.from)} and lose a day. ` +
+        (added ? "Read the new clue." : "Read the clues again."),
     );
   }
+
+  const daysLeft = () => game.days - game.day;
+  const daysLeftText = () =>
+    daysLeft() === 0 ? "This is the last day!" : `${daysLeft()} ${daysLeft() === 1 ? "day" : "days"} left.`;
 
   // --- The lineup
   function showLineup(message) {
     const d = detective();
     $("lineupAsk").textContent =
       (message ? message + " " : "") +
-      `The thief is hiding in ${placeOf(game.flown[game.flown.length - 1])}. ${d.avatar} ${d.name}, who is it? Check the notebook.`;
+      `The thief is hiding in ${placeOf(game.flown[game.flown.length - 1])}. ${daysLeftText()} ${d.avatar} ${d.name}, who is it? Check the notebook.`;
     renderNotebook($("lineupNotes"));
     $("lineupFeedback").textContent = "";
     const list = $("suspectList");
@@ -370,7 +411,9 @@
       nm.textContent = sus.name;
       const tr = document.createElement("span");
       tr.className = "suspect-traits";
-      tr.textContent = `Wears ${sus.hat}. Has ${sus.pet}. Loves ${sus.hobby}. Snacks on ${sus.snack}.`;
+      // The snack stays a fun note: each suspect has a different one, so it
+      // would name the thief alone.
+      tr.textContent = `Wears ${sus.hat}. Has ${sus.pet}. Loves ${sus.hobby}.`;
       b.append(nm, tr);
       b.addEventListener("click", () => accuse(sus.id, b));
       list.appendChild(b);
@@ -388,7 +431,7 @@
     if (game.day > game.days) return endCase(false);
     const d = detective();
     $("lineupFeedback").textContent =
-      `Not ${suspectById[id].name}, ${who.name}: that doesn't match the notebook. A day is lost. ${d.avatar} ${d.name}, try again!`;
+      `Not ${suspectById[id].name}, ${who.name}: that doesn't match the notebook. A day is lost: ${daysLeftText()} ${d.avatar} ${d.name}, try again!`;
     $("lineupFeedback").className = "feedback bad";
   }
 
@@ -403,7 +446,7 @@
       $("endHeadline").textContent = `Caught! ${thief.name} is under arrest.`;
       $("endText").textContent =
         `${catcher.name} named the thief in ${where}, and ${game.c.loot} is safe. ` +
-        `Solved by ${names} on day ${Math.min(game.day, game.days)} of ${game.days}.`;
+        `Solved by ${names} on day ${game.day} of ${game.days}.`;
     } else {
       $("endStamp").textContent = "Case open";
       $("endStamp").className = "case-stamp open";
@@ -421,7 +464,7 @@
       thief: game.c.thief,
       solved,
       detectives: teamNames(),
-      days: Math.min(game.day, game.days),
+      days: game.day,
     });
     writeJSON(CASEBOOK_KEY, book);
     show("endScreen");
@@ -550,37 +593,47 @@
     if (moved > 8) return;
     const point = mapPoint($("chaseMap"), e.clientX, e.clientY);
     const lonlat = trailProjection.invert(point);
-    if (!lonlat || !Number.isFinite(lonlat[0])) return;
-    const hit = countries.find((f) => byCode[f.properties.iso2] && d3.geoContains(f, lonlat));
-    let code = hit?.properties.iso2;
-    // A tap in the sea next to any island of a tiny country counts for it.
-    if (!code) {
-      const path = d3.geoPath(trailProjection);
-      let best = null;
-      let bestD = 16;
-      for (const c of COUNTRIES) {
-        const f = shapeById.get(c.code);
-        if (!f || path.area(f) > 300) continue;
-        let d = Infinity;
-        const walk = (xy) => {
-          if (typeof xy[0] === "number") {
-            const p = trailProjection(xy);
-            if (p) d = Math.min(d, Math.hypot(p[0] - point[0], p[1] - point[1]));
-          } else xy.forEach(walk);
-        };
-        walk(f.geometry.coordinates);
-        if (d < bestD) {
-          best = c.code;
-          bestD = d;
-        }
-      }
-      code = best;
-    }
-    if (!code) {
-      $("chaseFeedback").textContent = "That's the sea! Tap a country.";
+    if (!lonlat || !Number.isFinite(lonlat[0]) || !Number.isFinite(lonlat[1])) return;
+    // A tap outside the globe does nothing.
+    const back = trailProjection(lonlat);
+    if (!back || Math.hypot(back[0] - point[0], back[1] - point[1]) > 1) return;
+    const warn = (text) => {
+      $("chaseFeedback").textContent = text;
       $("chaseFeedback").className = "feedback warn";
-      return;
+    };
+    const shape = countries.find((f) => d3.geoContains(f, lonlat));
+    const id = shape?.properties.iso2;
+    if (shape && byCode[id]) return guess(id);
+    // Land that is not one of the 193 countries costs nothing.
+    if (shape) {
+      return warn(
+        id === "AQ"
+          ? "That's Antarctica: no country there. Tap a country."
+          : "That place is not one of the countries in this game. Tap a country.",
+      );
     }
+    // In the sea, a tap next to any island of a really small country (under
+    // 5,000 km²) counts for it.
+    let code = null;
+    let bestD = 16;
+    for (const c of COUNTRIES) {
+      if (FACTS[c.code].area >= 5000) continue;
+      const f = shapeById.get(c.code);
+      if (!f) continue;
+      let d = Infinity;
+      const walk = (xy) => {
+        if (typeof xy[0] === "number") {
+          const p = trailProjection(xy);
+          if (p) d = Math.min(d, Math.hypot(p[0] - point[0], p[1] - point[1]));
+        } else xy.forEach(walk);
+      };
+      walk(f.geometry.coordinates);
+      if (d < bestD) {
+        code = c.code;
+        bestD = d;
+      }
+    }
+    if (!code) return warn("That's the sea! Tap a country.");
     guess(code);
   });
 

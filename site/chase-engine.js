@@ -53,7 +53,37 @@ const ChaseEngine = (() => {
   }
 
   const firstLetter = (name) =>
-    name.normalize("NFD").replace(/[̀-ͯ]/g, "")[0].toUpperCase();
+    name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")[0].toUpperCase();
+  // A child may know a country by another name ("Ivory Coast"), so a letter
+  // clue fits a country if any of its names starts with that letter.
+  const lettersOf = (c) => new Set([c.name, ...(c.aka || [])].map(firstLetter));
+
+  // Coasts a child could fairly dispute: these touch only the Caspian Sea (a
+  // lake), so no coast clue is made for them, and no coast clue rules them out.
+  const COAST_UNCLEAR = new Set(["AZ", "KZ", "TM"]);
+  // Neighbor counts that depend on borders a child does not know: French
+  // Guiana (France), Ceuta and Melilla (Spain, Morocco), and the 150 m
+  // Botswana–Zambia border.
+  const COUNT_UNCLEAR = new Set(["FR", "ES", "MA", "BW", "ZM"]);
+
+  // Money clues need a plural a child can read ("euros", "Swiss francs").
+  // Currencies without one (for example "Loti") get no money clue.
+  const MONEY_PLURAL = {
+    "West African CFA franc": "West African francs",
+    "Central African CFA franc": "Central African francs",
+  };
+  const PLURAL_WORDS = {
+    dollar: "dollars", euro: "euros", franc: "francs", pound: "pounds", peso: "pesos",
+    rupee: "rupees", shilling: "shillings", dinar: "dinars", rial: "rials", riyal: "riyals",
+    dirham: "dirhams", ruble: "rubles", yen: "yen", yuan: "yuan", won: "won", rand: "rand",
+    lira: "lira", baht: "baht", rupiah: "rupiah",
+  };
+  function moneyPlural(name) {
+    if (MONEY_PLURAL[name]) return MONEY_PLURAL[name];
+    const words = name.split(" ");
+    const plural = PLURAL_WORDS[words.pop().toLowerCase()];
+    return plural ? [...words, plural].join(" ") : null;
+  }
   const speaks = (c, lang) => c.languages.includes(lang) || (c.otherLanguages || []).includes(lang);
   const pays = (c, money) => c.currency.name === money || (c.currency.also || []).includes(money);
 
@@ -119,21 +149,28 @@ const ChaseEngine = (() => {
         (k) => byCode[k].continent === c.continent,
       ),
     );
-    const letter = firstLetter(c.name);
-    out.push(
-      clue(
-        "letter",
-        `The country's name starts with the letter ${letter}.`,
-        (k) => firstLetter(byCode[k].name) === letter,
-      ),
-    );
+    // No letter clue when the country's names start with different letters.
+    const letters = lettersOf(c);
+    if (letters.size === 1) {
+      const [letter] = letters;
+      out.push(
+        clue(
+          "letter",
+          `The country's name starts with the letter ${letter}.`,
+          (k) => lettersOf(byCode[k]).has(letter),
+        ),
+      );
+    }
     if (level === "easy") return out;
 
     // Normal and up
     const money = c.currency.name;
-    out.push(clue("money", `At the bank, she asked for money in ${money}.`, (k) => pays(byCode[k], money)));
+    const plural = moneyPlural(money);
+    if (plural) out.push(clue("money", `Her wallet was full of ${plural}.`, (k) => pays(byCode[k], money)));
     for (const lang of c.languages) {
-      out.push(clue("language", `She was practicing her ${lang}.`, (k) => speaks(byCode[k], lang)));
+      out.push(
+        clue("language", `She practiced her ${lang}, which people speak there.`, (k) => speaks(byCode[k], lang)),
+      );
     }
     for (const n of f.neighbors) {
       out.push(
@@ -144,11 +181,13 @@ const ChaseEngine = (() => {
         ),
       );
     }
-    out.push(
-      f.landlocked
-        ? clue("coast", "She left her swimsuit at home: the country has no coast.", (k) => FACTS[k].landlocked)
-        : clue("coast", "She packed her swimsuit: the country has a coast.", (k) => !FACTS[k].landlocked),
-    );
+    if (!COAST_UNCLEAR.has(code)) {
+      out.push(
+        f.landlocked
+          ? clue("coast", "She left her swimsuit at home: the country has no coast.", (k) => COAST_UNCLEAR.has(k) || FACTS[k].landlocked)
+          : clue("coast", "She packed her swimsuit: the country has a coast.", (k) => COAST_UNCLEAR.has(k) || !FACTS[k].landlocked),
+      );
+    }
     if (level === "normal") return out;
 
     // Hard
@@ -160,12 +199,12 @@ const ChaseEngine = (() => {
       );
     }
     const n = f.neighbors.length;
-    if (n > 0) {
+    if (n > 0 && !COUNT_UNCLEAR.has(code)) {
       out.push(
         clue(
           "neighborCount",
           `The country has exactly ${n} ${n === 1 ? "neighbor" : "neighbors"} by land.`,
-          (k) => FACTS[k].neighbors.length === n,
+          (k) => COUNT_UNCLEAR.has(k) || FACTS[k].neighbors.length === n,
         ),
       );
     }
@@ -218,13 +257,25 @@ const ChaseEngine = (() => {
     return shuffle(r, [pick(r, strongPool.length ? strongPool : unique), pick(r, narrow)]);
   }
 
-  // A clear clue after a wrong guess, so a dead end always helps.
-  function extraClue(code) {
+  // A clear clue after a wrong guess, so a dead end always helps. It uses a
+  // type the step does not show yet (`shownTypes`); null when none is left.
+  function extraClue(code, shownTypes = []) {
     const c = byCode[code];
-    return clue("capital", `A taxi driver heard her say: "Take me to ${c.capital}!"`, (k) => {
-      const o = byCode[k];
-      return o.capital === c.capital || (o.capitalAlso || []).includes(c.capital);
-    });
+    const extras = [
+      clue("capital", `A taxi driver heard her say: "Take me to ${c.capital}!"`, (k) => {
+        const o = byCode[k];
+        return o.capital === c.capital || (o.capitalAlso || []).includes(c.capital);
+      }),
+      clue("flag", "She dropped a postcard with this flag on it.", (k) => k === code || FLAG_TWINS[code] === k, {
+        flag: code,
+      }),
+      clue(
+        "continent",
+        `The airline says her plane lands in ${CONTINENT_NAMES[c.continent]}.`,
+        (k) => byCode[k].continent === c.continent,
+      ),
+    ];
+    return extras.find((cl) => !shownTypes.includes(cl.type)) || null;
   }
 
   // --- The route

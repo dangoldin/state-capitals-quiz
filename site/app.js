@@ -437,7 +437,7 @@
     return s
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "") // strip accents
+      .replace(/[\u0300-\u036f]/g, "") // strip accents
       .replace(/\bsaint\b/g, "st") // Saint <-> St
       .replace(/[.,'’ʻ`\-]/g, "")
       .trim()

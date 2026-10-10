@@ -47,7 +47,26 @@ for (const level of E.LEVELS) {
       }
       // Clues that only work together (no single clue is enough).
       if (s.clues.every((cl) => E.solve([cl]).length > 1)) together++;
-      if (E.solve([E.extraClue(s.to)]).join() !== s.to) fail(`${id} step ${j}: the extra clue does not name ${s.to}`);
+      // The first dead-end clue is a new type, and together with the step's
+      // clues it still names the place.
+      const shownTypes = s.clues.map((x) => x.type);
+      const extra = E.extraClue(s.to, shownTypes);
+      if (!extra) fail(`${id} step ${j}: no extra clue for a dead end`);
+      else {
+        if (shownTypes.includes(extra.type)) fail(`${id} step ${j}: the extra clue repeats a ${extra.type} clue`);
+        if (E.solve([...s.clues, extra]).join() !== s.to) fail(`${id} step ${j}: the extra clue breaks the step`);
+      }
+      // Fairness rules (see CLAUDE.md).
+      const country = ctx.C.find((x) => x.code === s.to);
+      for (const cl of s.clues) {
+        if (cl.type === "coast" && ["AZ", "KZ", "TM"].includes(s.to)) fail(`${id} step ${j}: coast clue for the Caspian country ${s.to}`);
+        if (cl.type === "neighborCount" && ["FR", "ES", "MA", "BW", "ZM"].includes(s.to)) fail(`${id} step ${j}: neighbor count for ${s.to}`);
+        if (cl.type === "money" && /CFA|money in/.test(cl.text)) fail(`${id} step ${j}: hard money text "${cl.text}"`);
+        if (cl.type === "letter") {
+          const letters = new Set([country.name, ...(country.aka || [])].map((n) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "")[0].toUpperCase()));
+          if (letters.size > 1) fail(`${id} step ${j}: letter clue for ${s.to}, which has names with other letters`);
+        }
+      }
       if (level === "easy") {
         const o = s.options || [];
         if (o.length !== 4 || new Set(o).size !== 4 || !o.includes(s.to)) fail(`${id} step ${j}: bad options ${o}`);
