@@ -350,3 +350,40 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Normal: select, confirm, and hint */
+.chase-map svg.zoomed {
+  touch-action: none;
+}
+.map-here {
+  fill: #cbbd9a;
+  stroke: var(--ink-soft);
+  stroke-width: 0.8;
+}
+.map-choice {
+  fill: #e6c766;
+  stroke: var(--warn);
+  stroke-width: 1;
+}
+.map-choice-ring {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2;
+}
+.fly-confirm {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+.fly-question {
+  grid-column: 1 / -1;
+  font-family: var(--serif-display);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+}
+.hint-btn {
+  width: 100%;
+  margin-top: 10px;
+}

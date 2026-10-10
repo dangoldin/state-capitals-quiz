@@ -272,7 +272,7 @@
     $("chaseFeedback").textContent = "";
     $("chaseFeedback").className = "feedback";
     renderAnswer();
-    drawTrailMap({ guessing: game.c.level === "normal" });
+    drawTrailMap();
     show("cityScreen");
   }
 
@@ -315,10 +315,45 @@
       }
       area.appendChild(grid);
     } else if (game.c.level === "normal") {
-      const p = document.createElement("p");
-      p.className = "desk-hint";
-      p.textContent = "Tap the country on the map.";
-      area.appendChild(p);
+      if (game.selected) {
+        // Confirm the tapped country.
+        const bar = document.createElement("div");
+        bar.className = "fly-confirm";
+        const q = document.createElement("span");
+        q.className = "fly-question";
+        q.textContent = `Fly to ${byCode[game.selected].name}?`;
+        const go = document.createElement("button");
+        go.type = "button";
+        go.className = "action submit";
+        go.textContent = "Fly there";
+        go.addEventListener("click", () => guess(game.selected));
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "action dunno";
+        cancel.textContent = "Cancel";
+        cancel.addEventListener("click", () => {
+          game.selected = null;
+          renderAnswer();
+          drawTrailMap();
+        });
+        bar.append(q, go, cancel);
+        area.appendChild(bar);
+      } else {
+        const p = document.createElement("p");
+        p.className = "desk-hint";
+        p.textContent = game.choices
+          ? "One of the gold countries is right. Tap one to see its name."
+          : "Tap a country on the map to see its name. Use + and − or pinch to zoom.";
+        area.appendChild(p);
+      }
+      if (!game.choices) {
+        const hint = document.createElement("button");
+        hint.type = "button";
+        hint.className = "action dunno hint-btn";
+        hint.textContent = "Hint: show 4 choices";
+        hint.addEventListener("click", showChoices);
+        area.appendChild(hint);
+      }
     } else {
       const form = document.createElement("form");
       form.className = "type-guess";
@@ -369,6 +404,8 @@
     if (code === s.to) {
       game.flown.push(code);
       game.wrongHere = [];
+      game.selected = null;
+      game.choices = null;
       game.step += 1;
       if (game.day > game.days) return endCase(false);
       const found = `Right, ${who.name}! Someone saw the thief at the airport in ${placeOf(code)}. We're on the trail!`;
@@ -377,6 +414,9 @@
     }
     // Dead end: a day is lost, and a new clue of a new type helps.
     (game.wrongHere ||= []).push(code);
+    game.selected = null;
+    // A wrong pick loses its gold shade, so the hint narrows down.
+    if (game.choices) game.choices = game.choices.filter((k) => k !== code);
     if (game.day > game.days) return endCase(false);
     const extra = game.extra[game.step];
     const added = E.extraClue(s.to, [...s.clues, ...extra].map((cl) => cl.type));
@@ -496,7 +536,9 @@
   const HOP_RADIUS = { easy: 30, normal: 48, hard: 82 }; // degrees around the city
 
   // Draw the map: countries, the flights so far, and the city markers.
-  function drawMap(svg, projection, { highlight = [], current = null, route = [] }) {
+  // `here` is the current city's country; `selected` is the country the
+  // player tapped (Normal); `choices` are the countries a hint shades.
+  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [] }) {
     const path = d3.geoPath(projection);
     const center = projection.invert([MAP_W / 2, MAP_H / 2]);
     const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) => projection.invert(p));
@@ -513,8 +555,24 @@
       const d = path(f);
       if (!d) continue;
       const id = f.properties.iso2;
-      const cls = id === current ? "map-target" : highlight.includes(id) ? "map-visited" : "map-land";
+      const cls =
+        id === selected
+          ? "map-target"
+          : choices.includes(id)
+            ? "map-choice"
+            : id === current
+              ? "map-here"
+              : highlight.includes(id)
+                ? "map-visited"
+                : "map-land";
       parts.push(`<path class="${cls}" data-id="${id}" d="${d}"/>`);
+    }
+    // Rings show where a small selected or shaded country is.
+    for (const id of [...choices, selected].filter(Boolean)) {
+      const f = shapeById.get(id);
+      if (!f || path.area(f) >= 40) continue;
+      const p = projection(capitalPoint(id));
+      if (p) parts.push(`<circle class="${id === selected ? "map-ring" : "map-choice-ring"}" cx="${p[0]}" cy="${p[1]}" r="10"/>`);
     }
     // Flight lines follow the great circle between capitals.
     for (let i = 1; i < route.length; i++) {
@@ -532,29 +590,117 @@
         parts.push(`<text class="map-label" x="${p[0] + (right ? 9 : -9)}" y="${p[1] + 4}" text-anchor="${right ? "start" : "end"}"></text>`);
       }
     }
+    // The selected country's name, at its capital.
+    if (selected) {
+      const p = projection(capitalPoint(selected));
+      if (p) {
+        const right = p[0] < MAP_W * 0.6;
+        parts.push(`<text class="map-label selected-label" x="${p[0] + (right ? 12 : -12)}" y="${p[1] - 8}" text-anchor="${right ? "start" : "end"}"></text>`);
+      }
+    }
     svg.innerHTML = parts.join("");
-    const label = svg.querySelector(".map-label");
+    const label = svg.querySelector(".map-label:not(.selected-label)");
     if (label) label.textContent = cityOf(current);
+    const selLabel = svg.querySelector(".selected-label");
+    if (selLabel) selLabel.textContent = byCode[selected].name;
   }
 
+  const svgEl = $("chaseMap");
   let trailProjection = null;
-  function drawTrailMap({ guessing }) {
-    const here = currentStep().from;
-    const pad = 14;
-    // Normal shows enough of the world around the city to tap the next stop.
+  // The zoom of the trail map: a scale factor `k` and a position, kept for
+  // one stop (`key`), like `mapView` in app.js.
+  let trailView = { key: null };
+  const MAX_ZOOM = 20;
+  const PAD = 14;
+  const EXTENT = [[PAD, PAD], [MAP_W - PAD, MAP_H - PAD]];
+
+  // The view around the city: enough of the world to find the next stop.
+  function baseTrailProjection(here) {
     const circle = d3.geoCircle().center(capitalPoint(here)).radius(HOP_RADIUS[game.c.level])();
-    trailProjection = d3
-      .geoEqualEarth()
-      .rotate([-byCode[here].lng, 0])
-      .fitExtent([[pad, pad], [MAP_W - pad, MAP_H - pad]], { type: "Feature", geometry: circle });
-    drawMap($("chaseMap"), trailProjection, {
+    return d3.geoEqualEarth().rotate([-byCode[here].lng, 0]).fitExtent(EXTENT, { type: "Feature", geometry: circle });
+  }
+
+  function drawTrailMap() {
+    const here = currentStep().from;
+    const key = `${game.caseNo}:${game.step}`;
+    const projection = baseTrailProjection(here);
+    if (trailView.key !== key) {
+      const world = d3.geoEqualEarth().rotate([-byCode[here].lng, 0]).fitExtent(EXTENT, { type: "Sphere" }).scale();
+      trailView = {
+        key,
+        k: 1,
+        translate: projection.translate(),
+        baseScale: projection.scale(),
+        minK: Math.min(1, world / projection.scale()),
+      };
+    }
+    projection.scale(trailView.baseScale * trailView.k).translate(trailView.translate);
+    keepInFrame(projection);
+    trailProjection = projection;
+    // When zoomed, a one-finger drag moves the map instead of the page.
+    svgEl.classList.toggle("zoomed", trailView.k !== 1);
+    drawMap($("chaseMap"), projection, {
       highlight: game.flown.slice(0, -1),
       current: here,
       route: game.flown,
+      selected: game.selected,
+      choices: game.choices || [],
     });
-    $("chaseMapCaption").textContent = guessing
-      ? `You are in ${cityOf(here)}. Tap the country where the thief went.`
+    const normal = game.c.level === "normal";
+    $("chaseMapCaption").textContent = normal
+      ? `You are in ${cityOf(here)}. Tap a country to see its name.`
       : `You are in ${cityOf(here)}. The lines show the trail so far.`;
+  }
+
+  // Center a map smaller than the frame, and stop a drag at the map edge.
+  function keepInFrame(projection) {
+    const [[x0, y0], [x1, y1]] = d3.geoPath(projection).bounds({ type: "Sphere" });
+    const shift = (lo, hi, size) =>
+      hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0;
+    const dx = shift(x0, x1, MAP_W);
+    const dy = shift(y0, y1, MAP_H);
+    if (dx || dy) {
+      trailView.translate = [trailView.translate[0] + dx, trailView.translate[1] + dy];
+      projection.translate(trailView.translate);
+    }
+  }
+
+  let redrawQueued = false;
+  function redrawTrail() {
+    if (redrawQueued) return;
+    redrawQueued = true;
+    requestAnimationFrame(() => {
+      redrawQueued = false;
+      if (game && !$("cityScreen").hidden) drawTrailMap();
+    });
+  }
+
+  function zoomAt(x, y, factor) {
+    if (!trailView.key) return;
+    const k = Math.min(MAX_ZOOM, Math.max(trailView.minK, trailView.k * factor));
+    const f = k / trailView.k;
+    const [tx, ty] = trailView.translate;
+    trailView.translate = [x - (x - tx) * f, y - (y - ty) * f];
+    trailView.k = k;
+    redrawTrail();
+  }
+
+  function panBy(dx, dy) {
+    if (!trailView.key) return;
+    trailView.translate = [trailView.translate[0] + dx, trailView.translate[1] + dy];
+    redrawTrail();
+  }
+
+  // Zoom so that the given countries fill the view (for the hint).
+  function zoomToCountries(codes) {
+    const here = currentStep().from;
+    const fit = baseTrailProjection(here).fitExtent(EXTENT, {
+      type: "FeatureCollection",
+      features: codes.map((c) => ({ type: "Feature", geometry: d3.geoCircle().center(capitalPoint(c)).radius(4)() })),
+    });
+    trailView.k = Math.min(MAX_ZOOM, Math.max(trailView.minK, fit.scale() / trailView.baseScale));
+    trailView.translate = fit.translate();
+    drawTrailMap();
   }
 
   function drawRouteMap() {
@@ -582,20 +728,74 @@
       ((clientY - r.top - svg.clientTop) * MAP_H) / svg.clientHeight,
     ];
   }
-  let press = null;
-  $("chaseMap").addEventListener("pointerdown", (e) => {
-    press = { x: e.clientX, y: e.clientY, at: Date.now() };
+  // Pointers: a drag moves the map, two fingers zoom, and a short tap that
+  // does not move selects a country (Normal).
+  const pointers = new Map();
+  let tapStart = null;
+  svgEl.addEventListener("pointerdown", (e) => {
+    svgEl.setPointerCapture(e.pointerId);
+    const p = mapPoint(svgEl, e.clientX, e.clientY);
+    pointers.set(e.pointerId, p);
+    tapStart = pointers.size === 1 ? { id: e.pointerId, p, at: Date.now(), projection: trailProjection } : null;
   });
-  $("chaseMap").addEventListener("pointerup", (e) => {
-    if (!press || !game || game.c.level !== "normal" || $("cityScreen").hidden) return;
-    const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
-    press = null;
-    if (moved > 8) return;
-    const point = mapPoint($("chaseMap"), e.clientX, e.clientY);
-    const lonlat = trailProjection.invert(point);
+  svgEl.addEventListener("pointermove", (e) => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const now = mapPoint(svgEl, e.clientX, e.clientY);
+    if (tapStart && tapStart.id === e.pointerId) {
+      if (Math.hypot(now[0] - tapStart.p[0], now[1] - tapStart.p[1]) <= 6) return;
+      tapStart = null;
+    }
+    if (pointers.size === 1) panBy(now[0] - prev[0], now[1] - prev[1]);
+    else if (pointers.size === 2) {
+      const [other] = [...pointers].filter(([id]) => id !== e.pointerId).map(([, p]) => p);
+      const before = Math.hypot(prev[0] - other[0], prev[1] - other[1]);
+      const after = Math.hypot(now[0] - other[0], now[1] - other[1]);
+      if (before > 0) zoomAt((now[0] + other[0]) / 2, (now[1] + other[1]) / 2, after / before);
+    }
+    pointers.set(e.pointerId, now);
+  });
+  svgEl.addEventListener("pointerup", (e) => {
+    if (tapStart && tapStart.id === e.pointerId && Date.now() - tapStart.at < 600)
+      selectAt(tapStart.p, tapStart.projection);
+    tapStart = null;
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    svgEl.addEventListener(type, (e) => {
+      pointers.delete(e.pointerId);
+      if (type !== "pointerup") tapStart = null;
+    });
+  }
+  // Trackpad pinch sends ctrl + wheel. A plain wheel still scrolls the page.
+  svgEl.addEventListener(
+    "wheel",
+    (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const [x, y] = mapPoint(svgEl, e.clientX, e.clientY);
+      zoomAt(x, y, Math.exp(-e.deltaY * 0.01));
+    },
+    { passive: false },
+  );
+  svgEl.addEventListener("dblclick", (e) => {
+    const [x, y] = mapPoint(svgEl, e.clientX, e.clientY);
+    zoomAt(x, y, 2);
+  });
+  $("chaseZoomIn").addEventListener("click", () => zoomAt(MAP_W / 2, MAP_H / 2, 1.6));
+  $("chaseZoomOut").addEventListener("click", () => zoomAt(MAP_W / 2, MAP_H / 2, 1 / 1.6));
+  $("chaseZoomReset").addEventListener("click", () => {
+    trailView = { key: null };
+    drawTrailMap();
+  });
+
+  // Normal: a tap selects a country and shows its name. Only "Fly there"
+  // makes the guess, so a mistap costs nothing.
+  function selectAt(point, projection) {
+    if (!game || game.c.level !== "normal" || $("cityScreen").hidden || !projection) return;
+    const lonlat = projection.invert(point);
     if (!lonlat || !Number.isFinite(lonlat[0]) || !Number.isFinite(lonlat[1])) return;
     // A tap outside the globe does nothing.
-    const back = trailProjection(lonlat);
+    const back = projection(lonlat);
     if (!back || Math.hypot(back[0] - point[0], back[1] - point[1]) > 1) return;
     const warn = (text) => {
       $("chaseFeedback").textContent = text;
@@ -603,9 +803,9 @@
     };
     const shape = countries.find((f) => d3.geoContains(f, lonlat));
     const id = shape?.properties.iso2;
-    if (shape && byCode[id]) return guess(id);
-    // Land that is not one of the 193 countries costs nothing.
-    if (shape) {
+    let code = shape && byCode[id] ? id : null;
+    // Land that is not one of the 193 countries.
+    if (shape && !code) {
       return warn(
         id === "AQ"
           ? "That's Antarctica: no country there. Tap a country."
@@ -613,29 +813,53 @@
       );
     }
     // In the sea, a tap next to any island of a really small country (under
-    // 5,000 km²) counts for it.
-    let code = null;
-    let bestD = 16;
-    for (const c of COUNTRIES) {
-      if (FACTS[c.code].area >= 5000) continue;
-      const f = shapeById.get(c.code);
-      if (!f) continue;
-      let d = Infinity;
-      const walk = (xy) => {
-        if (typeof xy[0] === "number") {
-          const p = trailProjection(xy);
-          if (p) d = Math.min(d, Math.hypot(p[0] - point[0], p[1] - point[1]));
-        } else xy.forEach(walk);
-      };
-      walk(f.geometry.coordinates);
-      if (d < bestD) {
-        code = c.code;
-        bestD = d;
+    // 5,000 km²) selects it.
+    if (!code) {
+      let bestD = 16;
+      for (const c of COUNTRIES) {
+        if (FACTS[c.code].area >= 5000) continue;
+        const f = shapeById.get(c.code);
+        if (!f) continue;
+        let d = Infinity;
+        const walk = (xy) => {
+          if (typeof xy[0] === "number") {
+            const p = projection(xy);
+            if (p) d = Math.min(d, Math.hypot(p[0] - point[0], p[1] - point[1]));
+          } else xy.forEach(walk);
+        };
+        walk(f.geometry.coordinates);
+        if (d < bestD) {
+          code = c.code;
+          bestD = d;
+        }
       }
     }
     if (!code) return warn("That's the sea! Tap a country.");
-    guess(code);
-  });
+    game.selected = code;
+    $("chaseFeedback").textContent = "";
+    $("chaseFeedback").className = "feedback";
+    renderAnswer();
+    drawTrailMap();
+  }
+
+  // The hint: shade the right country and 3 others nearby that cannot fit
+  // all the clues, and zoom to them. It costs nothing.
+  function showChoices() {
+    const s = currentStep();
+    const clues = [...s.clues, ...game.extra[game.step]];
+    const taken = new Set([...game.flown, ...(game.wrongHere || [])]);
+    const near = COUNTRIES.map((c) => c.code)
+      .filter((k) => k !== s.to && !taken.has(k) && !clues.every((cl) => cl.fits(k)))
+      .sort((a, b) => E.distanceKm(s.to, a) - E.distanceKm(s.to, b))
+      .slice(0, 8);
+    for (let i = near.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [near[i], near[j]] = [near[j], near[i]];
+    }
+    game.choices = [s.to, ...near.slice(0, 3)].sort();
+    renderAnswer();
+    zoomToCountries(game.choices);
+  }
 
   // --- Start
   $("dateLine").textContent = new Date().toLocaleDateString("en-US", {
