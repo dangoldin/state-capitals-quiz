@@ -114,6 +114,24 @@ Licenses: 191 files are in the public domain. Two files need attribution:
 - **Libraries:** [d3-geo](https://github.com/d3/d3-geo) 3.1.1 and d3-array 3.2.4 (ISC license), [topojson-client](https://github.com/topojson/topojson-client) 3.1.0 (ISC license). They are copied into `site/vendor/`.
 - **Projection:** Equal Earth for the world. It keeps the true size of each area, so Africa is not drawn smaller than Greenland. The US map uses Albers USA, with Alaska and Hawaii as insets.
 
+## Chase facts (`site/facts.js`)
+
+Checked on 10 October 2026.
+
+- **Population:** World Bank, 2025 (`SP.POP.TOTL`). Wikidata often has old census numbers (for example Somalia 11 million, against 19.7 million in 2025), so it was not used.
+- **Area:** the median of three sources: World Bank surface area (`AG.SRF.TOTL.K2`), Wikidata (P2046), and mledoze/countries. Each source has outliers. For example, the World Bank gives Monaco 74.9 km² and Canada 15.6 million km², because it includes sea areas, and Wikidata includes territorial sea for Sweden. The median removes one bad value. Only France and Norway still disagree, because the sources count overseas departments and Svalbard differently.
+- **Neighbors:** land borders computed from the shared borders in the map data (Natural Earth, USA point of view), and checked against mledoze/countries.
+  - Added by hand: **Botswana – Zambia**, a border of about 150 m at Kazungula, too short for the map.
+  - Not a neighbor: **India – Sri Lanka**. mledoze lists it, but it is a sea border.
+  - Correct, and a good clue: **France – Brazil** and **France – Suriname**, through French Guiana.
+- **Landlocked:** mledoze/countries. The map agrees for 189 of 193 countries. The four exceptions are Azerbaijan, Kazakhstan, and Turkmenistan, which touch only the Caspian Sea (a lake), and South Sudan, where the map has a gap at a disputed area.
+
+**"Largest / smallest / most / fewest" clues** come from the data at run time, one winner for each continent deck. A clue is used only when the winner leads the runner-up by at least 20%, so a newer number cannot change the answer. Not used:
+
+- **Too close:** largest in Africa (Algeria 2% ahead of DR Congo), most people in Asia (India 4% ahead of China), fewest people in Asia and in Europe, largest in North America (Canada 2% ahead of the US), smallest in South America, and smallest in Oceania.
+- **Excluded by hand:** largest in Asia. In these decks Russia is in Europe, so the answer would be China, but a child could fairly answer Russia.
+- **"Smallest in Europe"** means among UN members, so the answer is Monaco, not Vatican City.
+
 ## Facts to check again
 
 | Fact | Why | When to check |

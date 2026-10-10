@@ -16,6 +16,8 @@ vm.runInContext(
   ctx,
 );
 const { COUNTRIES, US_STATES } = ctx;
+vm.runInContext(fs.readFileSync(path.join(root, "facts.js"), "utf8") + "\nthis.FACTS = FACTS;", ctx);
+const { FACTS } = ctx;
 
 const errors = [];
 const fail = (msg) => errors.push(msg);
@@ -174,9 +176,29 @@ for (const [state, cap, lat, lng] of US_STATES) {
 }
 for (const d of dupes(US_STATES.map(([, cap]) => normalize(cap || "")))) fail(`two states share the capital "${d}"`);
 
+// 8. Chase facts: one entry per country, positive numbers, and land borders
+//    that go both ways (A borders B ⇔ B borders A).
+for (const c of COUNTRIES) {
+  const f = FACTS[c.code];
+  if (!f) {
+    fail(`${c.code}: no entry in facts.js`);
+    continue;
+  }
+  if (!(f.area > 0)) fail(`${c.code}: area must be a positive number`);
+  if (!(Number.isInteger(f.population) && f.population > 0)) fail(`${c.code}: population must be a positive whole number`);
+  if (typeof f.landlocked !== "boolean") fail(`${c.code}: landlocked must be true or false`);
+  if (!Array.isArray(f.neighbors)) fail(`${c.code}: neighbors must be a list`);
+  for (const n of f.neighbors || []) {
+    if (!FACTS[n]) fail(`${c.code}: neighbor ${n} is not a UN member in the data`);
+    else if (!FACTS[n].neighbors.includes(c.code)) fail(`${c.code} borders ${n}, but ${n} does not list ${c.code}`);
+  }
+  if (f.landlocked && !(f.neighbors || []).length) fail(`${c.code}: a landlocked country must have neighbors`);
+}
+for (const k of Object.keys(FACTS)) if (!COUNTRIES.some((c) => c.code === k)) fail(`facts.js: ${k} is not a country in data.js`);
+
 if (errors.length) {
   console.error(errors.map((e) => "✗ " + e).join("\n"));
   console.error(`\n${errors.length} problem(s) found.`);
   process.exit(1);
 }
-console.log(`✓ data.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);
+console.log(`✓ data.js and facts.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);
