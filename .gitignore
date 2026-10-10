@@ -1,4 +1,5 @@
-# Wrangler
+# Cloudflare (cf and Wrangler)
+.cloudflare/
 .wrangler/
 .dev.vars
 

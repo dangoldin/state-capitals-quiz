@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Checks data.js for mistakes that would make a quiz question wrong or unfair.
 // Run: node scripts/check-data.js
-const fs = require("fs");
-const path = require("path");
-const vm = require("vm");
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
 
-const root = path.join(__dirname, "..");
+const root = path.join(import.meta.dirname, "..", "site");
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(

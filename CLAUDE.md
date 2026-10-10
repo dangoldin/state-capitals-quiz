@@ -6,19 +6,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The project is a geography flashcard quiz for children: US state capitals and the capitals of the 193 UN member states. Later phases add flags, currencies, languages, a map, points, and games (see `.omc/plans/geo-games-plan.md` when it exists locally).
 
-The app is static. It has no build step, no dependencies, and no CI.
+The app is static, with no build step and no CI. Only the files in `site/` are published:
 
-- `index.html`: the markup and the screens.
-- `styles.css`: the styles.
-- `data.js`: `COUNTRIES` and `US_STATES`. This file is the source of truth for all facts. The comment at the top lists the fields.
-- `app.js`: one IIFE with all the logic.
-- `flags/<code>.svg`: one flag for each country, from Wikimedia Commons.
+- `site/index.html`: the markup and the screens.
+- `site/styles.css`: the styles.
+- `site/data.js`: `COUNTRIES` and `US_STATES`. This file is the source of truth for all facts. The comment at the top lists the fields.
+- `site/app.js`: one IIFE with all the logic.
+- `site/flags/<code>.svg`: one flag for each country, from Wikimedia Commons.
+
+Outside `site/`:
+
 - `SOURCES.md`: where each fact comes from, the political choices, and the facts to check again.
+- `scripts/check-data.js`: the data checks.
+- `cloudflare.config.ts` and `wrangler.config.ts`: the deploy setup (see below).
 
 ## Commands
 
-- Run the app: `python3 -m http.server`, then open http://localhost:8000. You can also open `index.html` directly.
-- Check the data: `node scripts/check-data.js`. Run it after each change to `data.js` or `flags/`. It exits with code 1 on a problem.
+- `npm install`: install `cf` and `wrangler` (exact versions, for development and deploy only).
+- `npm run dev`: run the app with `cf dev` at http://localhost:8787, in the local Workers runtime.
+- `python3 -m http.server -d site`: run the app with no install, at http://localhost:8000. You can also open `site/index.html` directly.
+- `npm run check`: check the data. Run it after each change to `site/data.js` or `site/flags/`. It exits with code 1 on a problem.
+- `npm run deploy`: run the data check, then `cf deploy`. Sign in first with `npx cf auth login`.
+
+## Deploy
+
+The app deploys to Cloudflare Workers static assets with the `cf` CLI (beta), not with direct Wrangler commands.
+
+- `cf pages deploy` is not supported in `cf`. Use `cf deploy`.
+- For a static site, `cf` uses Wrangler inside. `wrangler.config.ts` sets `assetsDirectory: "./site"`, so the repo files outside `site/` are never uploaded.
+- `cloudflare.config.ts` sets the Worker name (`world-register`) and the compatibility date.
+- `cf` is in beta, so commands and config can change. Pin exact versions in `package.json`.
+- `.cloudflare/` is generated build output and is in `.gitignore`.
 
 Load the scripts with classic `<script>` tags, not ES modules. A browser blocks modules when the page opens from `file://`. `data.js` declares top-level `const`s that `app.js` reads as globals.
 
@@ -27,7 +45,7 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
 - Find a source for each changed fact, and record it in `SOURCES.md`. Facts change. For example, Equatorial Guinea changed its capital and Nauru changed its name to Naoero in 2026.
 - `capitalAlso` holds other official capitals, which the quiz accepts. A city where the government only works (The Hague, Cotonou) goes in `capitalNote`, not in `capitalAlso`.
 - A multiple-choice question must never show a correct answer as a wrong option. For languages, `otherLanguages` lists every language that must never be a wrong option. For currencies, `currency.also` does the same.
-- `scripts/check-data.js` copies `normalize()` from `app.js`. Change both together.
+- `scripts/check-data.js` copies `normalize()` from `site/app.js`. Change both together.
 
 ## Architecture
 
