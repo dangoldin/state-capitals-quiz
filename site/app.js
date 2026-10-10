@@ -59,6 +59,11 @@
   const OLD_PROGRESS_KEY = "capitals-progress-v2";
   const MIGRATED_KEY = "geo-migrated-v2"; // set once the v2 progress has moved
   const progressKey = (playerId) => "geo-progress-v3:" + playerId;
+  const statsKey = (playerId) => "geo-stats-v1:" + playerId;
+  const SETTINGS_KEY = "geo-settings-v1";
+  // Points: 10 for a choice (Easy), 20 for a typed answer, and a bonus from
+  // the third correct answer in a row. A wrong answer never removes points.
+  const POINTS = { easy: 10, type: 20, runBonus: 5, runFrom: 3 };
   const AVATARS = ["🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁"];
 
   const $ = (id) => document.getElementById(id);
@@ -121,9 +126,92 @@
   const playerById = (id) => players.list.find((p) => p.id === id);
   const turnPlayer = () => playerById(players.playing[players.turn]);
 
+  // scoreMode: "off" (default: no points shown), "team" or "each".
+  const DEFAULT_SETTINGS = { showMap: true, scoreMode: "off" };
+  const settings = { ...DEFAULT_SETTINGS, ...readJSON(SETTINGS_KEY, {}) };
+  const saveSettings = () => writeJSON(SETTINGS_KEY, settings);
+
   let current = null;
   let lastShown = null;
   let phase = "asking"; // "asking" | "revealed"
+
+  // --- Score ---
+  // Points are always saved, even with scoring off, so turning it on later
+  // shows the history. The session score (team or each player) resets at Start.
+  let session = { team: 0, byPlayer: {}, run: {} };
+  let lastAward = null;
+
+  // The Monday of this week, as YYYY-MM-DD in local time.
+  function weekStart(date = new Date()) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function statsOf(id) {
+    const stats = readJSON(statsKey(id), { total: 0, week: null, weekPoints: 0 });
+    if (stats.week !== weekStart()) {
+      stats.week = weekStart();
+      stats.weekPoints = 0;
+    }
+    return stats;
+  }
+
+  function awardPoints(correct) {
+    const p = turnPlayer();
+    if (!p) return null;
+    if (!correct) {
+      session.run[p.id] = 0;
+      return null;
+    }
+    const run = (session.run[p.id] || 0) + 1;
+    session.run[p.id] = run;
+    const bonus = run >= POINTS.runFrom ? POINTS.runBonus : 0;
+    const points = (isEasy() ? POINTS.easy : POINTS.type) + bonus;
+    session.team += points;
+    session.byPlayer[p.id] = (session.byPlayer[p.id] || 0) + points;
+    const stats = statsOf(p.id);
+    stats.total += points;
+    stats.weekPoints += points;
+    writeJSON(statsKey(p.id), stats);
+    return { points, bonus, run };
+  }
+
+  function scoreChip(label, points, active) {
+    const chip = document.createElement("div");
+    chip.className = "score-chip" + (active ? " active" : "");
+    const name = document.createElement("span");
+    name.className = "score-name";
+    name.textContent = label;
+    const num = document.createElement("span");
+    num.className = "score-num";
+    num.textContent = points;
+    chip.append(name, num);
+    return chip;
+  }
+
+  function renderScore() {
+    const el = $("scoreboard");
+    el.hidden = settings.scoreMode === "off" || !players.playing.length;
+    el.innerHTML = "";
+    if (el.hidden) return;
+    if (settings.scoreMode === "team") {
+      el.append(scoreChip("Team score", session.team, false));
+    } else {
+      for (const id of players.playing) {
+        const p = playerById(id);
+        el.append(scoreChip(`${p.avatar} ${p.name}`, session.byPlayer[id] || 0, p === turnPlayer()));
+      }
+    }
+  }
+
+  function setScoreMode(mode) {
+    settings.scoreMode = mode;
+    saveSettings();
+    renderPlayers();
+    renderScore();
+  }
 
   function saveProgress() {
     const p = turnPlayer();
@@ -216,6 +304,8 @@
     players.playing = [];
     players.turn = 0;
     for (const id of Object.keys(progressById)) delete progressById[id];
+    Object.assign(settings, DEFAULT_SETTINGS);
+    session = { team: 0, byPlayer: {}, run: {} };
     savePlayers();
     renderPlayerButton();
     lastShown = null;
@@ -227,6 +317,7 @@
   function startGame() {
     if (!players.playing.length) return;
     players.turn = 0;
+    session = { team: 0, byPlayer: {}, run: {} };
     savePlayers();
     $("playersBackdrop").classList.remove("open");
     setInert(false);
@@ -537,9 +628,12 @@
       pick.type = "button";
       pick.className = "player-pick" + (order >= 0 ? " active" : "");
       pick.setAttribute("aria-pressed", order >= 0 ? "true" : "false");
-      pick.innerHTML = `<span class="avatar"></span><span class="pname"></span><span class="porder"></span>`;
+      pick.innerHTML = `<span class="avatar"></span><span class="pmain"><span class="pname"></span><span class="pweek"></span></span><span class="porder"></span>`;
       pick.querySelector(".avatar").textContent = p.avatar;
       pick.querySelector(".pname").textContent = p.name;
+      // With "each player" scoring, show this week's points.
+      if (settings.scoreMode === "each")
+        pick.querySelector(".pweek").textContent = `${statsOf(p.id).weekPoints} points this week`;
       pick.querySelector(".porder").textContent = order >= 0 ? order + 1 : "";
       pick.addEventListener("click", () => togglePlaying(p.id));
 
@@ -583,6 +677,11 @@
       ? "Tap a name to add or drop that player from this game. Turns go in the order of the numbers. × deletes a player."
       : "Add each player. Then press Start.";
     $("newGameBtn").hidden = players.list.length === 0;
+    for (const b of $("scoreMode").querySelectorAll("button")) {
+      const on = b.dataset.mode === settings.scoreMode;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    }
 
     const picker = $("avatarPicker");
     picker.innerHTML = "";
@@ -632,6 +731,7 @@
     if (phase === "asking") showQuestion();
     renderStats();
     renderStreakDots();
+    renderScore();
   }
 
   function renderStreakDots() {
@@ -740,12 +840,21 @@
     showQuestion();
     renderStreakDots();
     renderStats();
+    renderScore();
     renderMap(false);
   }
 
   // Show the result line, plus the item's note (e.g. "South Africa has three capitals").
   function reveal(html, cls) {
     feedbackEl.innerHTML = html;
+    if (lastAward && settings.scoreMode !== "off") {
+      const pts = document.createElement("span");
+      pts.className = "points";
+      pts.textContent = lastAward.bonus
+        ? ` +${lastAward.points} (${lastAward.run} in a row!)`
+        : ` +${lastAward.points}`;
+      feedbackEl.appendChild(pts);
+    }
     if (current.note) {
       const note = document.createElement("div");
       note.className = "note";
@@ -755,6 +864,7 @@
     feedbackEl.className = "feedback " + cls;
     phase = "revealed";
     renderMap(true);
+    renderScore();
     saveProgress();
     renderStreakDots();
     renderStats();
@@ -762,6 +872,7 @@
   }
 
   function record(correct) {
+    lastAward = awardPoints(correct);
     const p = entryFor(current);
     p.seen++;
     if (correct) {
@@ -909,6 +1020,8 @@
   $("playersClose").addEventListener("click", closePlayers);
   $("startBtn").addEventListener("click", startGame);
   $("newGameBtn").addEventListener("click", newGame);
+  for (const b of $("scoreMode").querySelectorAll("button"))
+    b.addEventListener("click", () => setScoreMode(b.dataset.mode));
   $("confirmOk").addEventListener("click", () => answerConfirm(true));
   $("confirmCancel").addEventListener("click", () => answerConfirm(false));
   $("playersBackdrop").addEventListener("click", (e) => {
@@ -947,10 +1060,8 @@
     "map/world.js",
     "map/us-states.js",
   ];
-  const SETTINGS_KEY = "geo-settings-v1";
   const MAP_W = 480;
   const MAP_H = 300;
-  const settings = { showMap: true, ...readJSON(SETTINGS_KEY, {}) };
   const mapFigureEl = $("mapFigure");
   const mapSvgEl = $("mapSvg");
   const mapCaptionEl = $("mapCaption");
@@ -1288,7 +1399,7 @@
 
   $("mapToggle").addEventListener("change", (e) => {
     settings.showMap = e.target.checked;
-    writeJSON(SETTINGS_KEY, settings);
+    saveSettings();
     renderMap(phase === "revealed");
   });
 

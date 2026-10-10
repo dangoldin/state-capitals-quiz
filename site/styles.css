@@ -657,12 +657,26 @@ button.action:disabled {
   filter: grayscale(1);
   opacity: 0.6;
 }
-.player-pick .pname {
+.player-pick .pmain {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.player-pick .pname {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.player-pick .pweek {
+  font-family: var(--serif-text);
+  font-size: 13px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--muted);
+}
+.player-pick .pweek:empty {
+  display: none;
 }
 .porder {
   min-width: 26px;
@@ -932,4 +946,76 @@ button.danger:hover {
   font-style: italic;
   color: var(--muted);
   text-align: center;
+}
+
+/* --- Score (hidden unless "Keep score" is on) --- */
+.scoreboard {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  margin: -8px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.scoreboard[hidden] {
+  display: none;
+}
+.score-chip {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+.score-chip.active {
+  color: var(--ink);
+}
+.score-chip.active .score-name {
+  border-bottom: 1px solid var(--navy);
+}
+.score-name {
+  font-size: 15px;
+}
+.score-num {
+  font-family: var(--serif-display);
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--navy);
+}
+.feedback .points {
+  font-family: var(--serif-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--navy);
+  white-space: nowrap;
+}
+.score-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 20px 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+.segmented {
+  display: flex;
+  border: 1px solid var(--ink);
+}
+.segmented button {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 7px 12px;
+  font-size: 15px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.segmented button + button {
+  border-left: 1px solid var(--rule);
+}
+.segmented button.on {
+  background: var(--ink);
+  color: var(--paper);
 }

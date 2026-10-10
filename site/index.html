@@ -72,6 +72,8 @@
         </div>
       </div>
 
+      <div class="scoreboard" id="scoreboard" aria-live="polite" hidden></div>
+
       <div class="card">
         <div class="turn" id="turnBanner" hidden></div>
         <img class="flag" id="flag" alt="" hidden />
@@ -169,6 +171,19 @@
         <div class="modal-body">
           <p class="players-hint" id="playersHint"></p>
           <div class="player-list" id="playerList"></div>
+          <div class="score-setting">
+            <span class="deck-label" id="scoreLabel">Keep score</span>
+            <div
+              class="segmented"
+              id="scoreMode"
+              role="radiogroup"
+              aria-labelledby="scoreLabel"
+            >
+              <button type="button" role="radio" data-mode="off">Off</button>
+              <button type="button" role="radio" data-mode="team">Team</button>
+              <button type="button" role="radio" data-mode="each">Each player</button>
+            </div>
+          </div>
           <form class="add-player" id="addPlayerForm" autocomplete="off">
             <div class="deck-label">New player</div>
             <input
