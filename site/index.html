@@ -114,13 +114,21 @@
           </label>
         </div>
         <figure class="map-figure" id="mapFigure">
+          <div class="map-controls">
+            <button type="button" id="mapZoomIn" aria-label="Zoom in">+</button>
+            <button type="button" id="mapZoomOut" aria-label="Zoom out">−</button>
+            <button type="button" id="mapReset" aria-label="Reset the map view" title="Reset view">⟲</button>
+          </div>
           <svg
             id="mapSvg"
             viewBox="0 0 480 300"
             role="img"
             aria-label="Map"
           ></svg>
-          <figcaption id="mapCaption"></figcaption>
+          <figcaption>
+            <span id="mapCaption"></span>
+            <span class="map-hint">Drag to move. Pinch, or use + and −, to zoom.</span>
+          </figcaption>
         </figure>
       </section>
 

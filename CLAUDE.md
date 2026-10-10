@@ -74,4 +74,7 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
   - US states use Albers USA and always show the whole country.
   - After the answer, a dot and a label mark the capital.
   - `drawMap()` skips countries outside the view, using a center and radius computed once for each country.
+  - Zoom and pan change the projection (`mapView`: scale factor `k` and `translate`) and draw again on the next frame. They do not scale the SVG, so detail and skipped countries stay correct. `keepInFrame()` centers a map smaller than the frame and stops a drag at the map edge.
+  - Input: the + / − / reset buttons, a drag, a two-finger pinch (pointer events), a double-click, and Ctrl/⌘ + wheel (a trackpad pinch). A plain wheel scrolls the page. `touch-action: pan-y` keeps a vertical swipe for page scrolling until the map is zoomed.
+  - Each new card resets the view. Showing the answer keeps it.
 - **Scheduling.** `pickNext()` does a weighted random pick. Wrong answers and new items increase the weight, and each streak step halves it. An item is "mastered" when its streak is `MASTERED_AT` (4) or more.

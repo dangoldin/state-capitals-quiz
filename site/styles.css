@@ -826,12 +826,46 @@ button.danger:hover {
 }
 .map-figure {
   margin: 0;
+  position: relative;
+}
+.map-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ink);
+  background: var(--card);
+  z-index: 1;
+}
+.map-controls button {
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--ink);
+  font-family: var(--serif-display);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.map-controls button + button {
+  border-top: 1px solid var(--rule);
+}
+.map-controls button:hover {
+  background: var(--paper-deep);
 }
 .map-figure[hidden] {
   display: none;
 }
 #mapSvg {
   display: block;
+  cursor: grab;
+  /* A vertical swipe still scrolls the page; the app handles the rest. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
   width: 100%;
   height: auto;
   background: var(--card);
@@ -881,6 +915,16 @@ button.danger:hover {
   stroke-width: 4px;
   stroke-linejoin: round;
   paint-order: stroke;
+}
+#mapSvg.zoomed {
+  touch-action: none;
+}
+#mapSvg:active {
+  cursor: grabbing;
+}
+.map-hint {
+  display: block;
+  font-size: 12px;
 }
 .map-figure figcaption {
   margin-top: 6px;

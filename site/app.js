@@ -1051,6 +1051,25 @@
           features: target ? [focusParts(target, capital), context] : [context],
         });
     }
+    // Zoom: each card starts at the fitted view. Showing the answer keeps
+    // the player's zoom, because the card stays the same.
+    if (mapView.key !== item.key) {
+      const world = m.kind === "world"
+        ? d3.geoEqualEarth().rotate([-m.lng, 0]).fitExtent(extent, { type: "Sphere" }).scale()
+        : projection.scale() * 0.8;
+      mapView = {
+        key: item.key,
+        k: 1,
+        translate: projection.translate(),
+        baseScale: projection.scale(),
+        minK: Math.min(1, world / projection.scale()),
+      };
+    }
+    projection.scale(mapView.baseScale * mapView.k).translate(mapView.translate);
+    keepInFrame(projection, m.kind === "world" ? { type: "Sphere" } : mapData.nation);
+    lastMapDraw = { item, revealed };
+    mapSvgEl.classList.toggle("zoomed", mapView.k !== 1);
+
     const path = d3.geoPath(projection);
     const parts = [];
     let ringed = false;
@@ -1062,7 +1081,10 @@
       const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) =>
         projection.invert(p),
       );
-      if (viewCenter && corners.every((c) => c && Number.isFinite(c[0])))
+      // If the whole globe fits in the view, draw everything.
+      const [[x0, y0], [x1, y1]] = sphereBounds(projection);
+      const globeInside = x0 >= 0 && y0 >= 0 && x1 <= MAP_W && y1 <= MAP_H;
+      if (!globeInside && viewCenter && corners.every((c) => c && Number.isFinite(c[0])))
         viewRadius = Math.max(...corners.map((c) => d3.geoDistance(c, viewCenter)));
     }
     const inView = (f) =>
@@ -1118,6 +1140,111 @@
       ? `${marked} The dot marks ${item.answer}.`
       : marked;
   }
+
+  const sphereBounds = (projection) => d3.geoPath(projection).bounds({ type: "Sphere" });
+
+  // --- Map zoom and pan ---
+  const MAX_ZOOM = 20;
+  let mapView = { key: null };
+  let lastMapDraw = null;
+  let redrawQueued = false;
+
+  function redrawMap() {
+    if (redrawQueued) return;
+    redrawQueued = true;
+    requestAnimationFrame(() => {
+      redrawQueued = false;
+      if (lastMapDraw && lastMapDraw.item === current)
+        drawMap(lastMapDraw.item, lastMapDraw.revealed);
+    });
+  }
+
+  // Keep the map in the frame: center it when it is smaller than the frame,
+  // and never let a drag show empty space beyond its edge.
+  function keepInFrame(projection, outline) {
+    const [[x0, y0], [x1, y1]] = d3.geoPath(projection).bounds(outline);
+    const shift = (lo, hi, size) =>
+      hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0;
+    const dx = shift(x0, x1, MAP_W);
+    const dy = shift(y0, y1, MAP_H);
+    if (dx || dy) {
+      const [tx, ty] = mapView.translate;
+      mapView.translate = [tx + dx, ty + dy];
+      projection.translate(mapView.translate);
+    }
+  }
+
+  // Zoom by `factor`, keeping the map point under (x, y) in place.
+  function zoomAt(x, y, factor) {
+    if (!mapView.key) return;
+    const k = Math.min(MAX_ZOOM, Math.max(mapView.minK, mapView.k * factor));
+    const f = k / mapView.k;
+    const [tx, ty] = mapView.translate;
+    mapView.translate = [x - (x - tx) * f, y - (y - ty) * f];
+    mapView.k = k;
+    redrawMap();
+  }
+
+  function panBy(dx, dy) {
+    if (!mapView.key) return;
+    const [tx, ty] = mapView.translate;
+    mapView.translate = [tx + dx, ty + dy];
+    redrawMap();
+  }
+
+  function resetZoom() {
+    mapView = { key: null };
+    if (lastMapDraw) drawMap(lastMapDraw.item, lastMapDraw.revealed);
+  }
+
+  // Screen position to map (viewBox) units.
+  function mapPoint(clientX, clientY) {
+    const r = mapSvgEl.getBoundingClientRect();
+    return [((clientX - r.left) * MAP_W) / r.width, ((clientY - r.top) * MAP_H) / r.height];
+  }
+
+  const pointers = new Map();
+  mapSvgEl.addEventListener("pointerdown", (e) => {
+    mapSvgEl.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, mapPoint(e.clientX, e.clientY));
+  });
+  mapSvgEl.addEventListener("pointermove", (e) => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const now = mapPoint(e.clientX, e.clientY);
+    if (pointers.size === 1) {
+      panBy(now[0] - prev[0], now[1] - prev[1]);
+    } else if (pointers.size === 2) {
+      // Pinch: zoom by the change in finger distance, around the midpoint.
+      const [other] = [...pointers].filter(([id]) => id !== e.pointerId).map(([, p]) => p);
+      const before = Math.hypot(prev[0] - other[0], prev[1] - other[1]);
+      const after = Math.hypot(now[0] - other[0], now[1] - other[1]);
+      if (before > 0)
+        zoomAt((now[0] + other[0]) / 2, (now[1] + other[1]) / 2, after / before);
+    }
+    pointers.set(e.pointerId, now);
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    mapSvgEl.addEventListener(type, (e) => pointers.delete(e.pointerId));
+  }
+  // Trackpad pinch sends ctrl + wheel. A plain wheel still scrolls the page.
+  mapSvgEl.addEventListener(
+    "wheel",
+    (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const [x, y] = mapPoint(e.clientX, e.clientY);
+      zoomAt(x, y, Math.exp(-e.deltaY * 0.01));
+    },
+    { passive: false },
+  );
+  mapSvgEl.addEventListener("dblclick", (e) => {
+    const [x, y] = mapPoint(e.clientX, e.clientY);
+    zoomAt(x, y, 2);
+  });
+  $("mapZoomIn").addEventListener("click", () => zoomAt(MAP_W / 2, MAP_H / 2, 1.6));
+  $("mapZoomOut").addEventListener("click", () => zoomAt(MAP_W / 2, MAP_H / 2, 1 / 1.6));
+  $("mapReset").addEventListener("click", resetZoom);
 
   function renderMap(revealed) {
     $("mapToggle").checked = settings.showMap;
