@@ -16,6 +16,10 @@
   --bad-wash: #f1dfda;
   --warn: #8a6a1c;
   --warn-wash: #f1e7cf;
+  --map-water: #dde5e4;
+  --map-land: #f3ecdc;
+  --map-border: #a2998a;
+  --map-target: #1f3550;
 
   --serif-display:
     "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
@@ -782,4 +786,106 @@ button.danger {
 button.danger:hover {
   background: var(--ink);
   border-color: var(--ink);
+}
+
+/* --- Map --- */
+.map-section {
+  margin-top: 22px;
+}
+.map-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 3px double var(--rule-strong);
+  padding-top: 8px;
+  margin-bottom: 10px;
+}
+.map-title {
+  font-family: var(--serif-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.map-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--ink-soft);
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.map-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--navy);
+  cursor: pointer;
+}
+.map-figure {
+  margin: 0;
+}
+.map-figure[hidden] {
+  display: none;
+}
+#mapSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--card);
+  border: 1px solid var(--rule-strong);
+}
+#mapSvg path,
+#mapSvg circle {
+  vector-effect: non-scaling-stroke;
+}
+.map-water {
+  fill: var(--map-water);
+}
+.map-grid {
+  fill: none;
+  stroke: #c3cfcd;
+  stroke-width: 0.5;
+}
+.map-land {
+  fill: var(--map-land);
+  stroke: var(--map-border);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
+.map-target {
+  fill: var(--map-target);
+  stroke: var(--ink);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+.map-ring {
+  fill: none;
+  stroke: var(--map-target);
+  stroke-width: 2;
+}
+.map-capital {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+.map-label {
+  font-family: var(--serif-display);
+  font-size: 15px;
+  font-weight: 700;
+  font-style: italic;
+  fill: var(--ink);
+  stroke: var(--paper);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+.map-figure figcaption {
+  margin-top: 6px;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--muted);
+  text-align: center;
 }

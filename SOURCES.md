@@ -101,6 +101,17 @@ Licenses: 191 files are in the public domain. Two files need attribution:
 - `flags/ye.svg`: "Flag of Yemen.svg" by 愛喝奶茶, [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0), from Wikimedia Commons.
 - `flags/om.svg`: "Flag of Oman.svg", vectorized from qanoon.om, [Open Government Licence – Oman 1.0](https://www.oman.om/en/home-footer-level/faq/open-government-licence-oman), from Wikimedia Commons.
 
+## Maps
+
+- **World:** [Natural Earth](https://www.naturalearthdata.com/) 1:10m Admin 0 – Countries, **USA point of view**, version 5.1.1. Public domain.
+  - The default Natural Earth file shows who controls an area. The USA version follows US policy. For example, Crimea is part of Ukraine, and Abkhazia and South Ossetia are part of Georgia.
+  - Areas that are not UN members (for example Kosovo, Taiwan, Western Sahara, and Palestine) show as plain land. They are never highlighted.
+  - `scripts/build-map.sh` simplifies the shapes, with finer detail for smaller countries. Every capital stays within 9 km of its country, the same as in the full-detail data. `scripts/check-data.js` checks this for all 193 capitals.
+- **US states:** [us-atlas](https://github.com/topojson/us-atlas) 3.0.1, from the US Census Bureau cartographic boundaries. ISC license.
+- **State capital coordinates:** Wikidata (P625), 10 October 2026. Juneau was added by hand (58.30, −134.42), and the check confirms it is inside Alaska.
+- **Libraries:** [d3-geo](https://github.com/d3/d3-geo) 3.1.1 and d3-array 3.2.4 (ISC license), [topojson-client](https://github.com/topojson/topojson-client) 3.1.0 (ISC license). They are copied into `site/vendor/`.
+- **Projection:** Equal Earth for the world. It keeps the true size of each area, so Africa is not drawn smaller than Greenland. The US map uses Albers USA, with Alaska and Hawaii as insets.
+
 ## Facts to check again
 
 | Fact | Why | When to check |

@@ -4,6 +4,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { geoContains, geoDistance } from "d3-geo";
+import { feature } from "topojson-client";
 
 const root = path.join(import.meta.dirname, "..", "site");
 const ctx = {};
@@ -120,8 +122,55 @@ checkChoices(
 if (US_STATES.length !== 50) fail(`expected 50 US states, found ${US_STATES.length}`);
 for (const d of dupes(US_STATES.map(([s]) => s))) fail(`duplicate state ${d}`);
 for (const row of US_STATES) {
-  const [state, cap] = row;
-  if (row.length !== 2 || !state || typeof cap !== "string" || !cap) fail(`state row ${JSON.stringify(row)}: needs [name, capital]`);
+  const [state, cap, lat, lng] = row;
+  if (row.length !== 4 || !state || typeof cap !== "string" || !cap || !(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180))
+    fail(`state row ${JSON.stringify(row)}: needs [name, capital, lat, lng]`);
+}
+
+// 7. Maps: every country and state has a shape, and every capital point is
+//    on or next to its own shape. Coastal capitals sit on the shore, so allow
+//    a small distance (the full-detail Natural Earth data needs up to 9 km).
+const MAX_KM = 10;
+const mapCtx = { window: {} };
+vm.createContext(mapCtx);
+for (const f of ["world.js", "us-states.js"]) {
+  vm.runInContext(fs.readFileSync(path.join(root, "map", f), "utf8"), mapCtx);
+}
+const kmFromShape = (shape, point) => {
+  if (geoContains(shape, point)) return 0;
+  let min = Infinity;
+  const walk = (c) => {
+    if (typeof c[0] === "number") min = Math.min(min, geoDistance(c, point));
+    else c.forEach(walk);
+  };
+  walk(shape.geometry.coordinates);
+  return min * 6371;
+};
+const world = mapCtx.window.WORLD_MAP;
+const countryShapes = new Map(
+  feature(world, world.objects.countries).features.map((f) => [f.properties.iso2, f]),
+);
+for (const c of COUNTRIES) {
+  const shape = countryShapes.get(c.code);
+  if (!shape) {
+    fail(`${c.code}: no shape on the world map`);
+    continue;
+  }
+  const km = kmFromShape(shape, [c.lng, c.lat]);
+  if (km > MAX_KM) fail(`${c.code}: capital ${c.capital} is ${km.toFixed(1)} km from the country on the map`);
+}
+const us = mapCtx.window.US_MAP;
+const stateShapes = new Map(
+  feature(us, us.objects.states).features.map((f) => [f.properties.name, f]),
+);
+for (const [state, cap, lat, lng] of US_STATES) {
+  const shape = stateShapes.get(state);
+  if (!shape) {
+    fail(`${state}: no shape on the US map`);
+    continue;
+  }
+  const km = kmFromShape(shape, [lng, lat]);
+  if (km > MAX_KM) fail(`${state}: capital ${cap} is ${km.toFixed(1)} km from the state on the map`);
 }
 for (const d of dupes(US_STATES.map(([, cap]) => normalize(cap || "")))) fail(`two states share the capital "${d}"`);
 
@@ -130,4 +179,4 @@ if (errors.length) {
   console.error(`\n${errors.length} problem(s) found.`);
   process.exit(1);
 }
-console.log(`✓ data.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present.`);
+console.log(`✓ data.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);

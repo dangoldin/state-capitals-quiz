@@ -13,11 +13,14 @@ The app is static, with no build step and no CI. Only the files in `site/` are p
 - `site/data.js`: `COUNTRIES` and `US_STATES`. This file is the source of truth for all facts. The comment at the top lists the fields.
 - `site/app.js`: one IIFE with all the logic.
 - `site/flags/<code>.svg`: one flag for each country, from Wikimedia Commons.
+- `site/map/world.js`, `site/map/us-states.js`: generated map data (TopoJSON wrapped as `window.WORLD_MAP` and `window.US_MAP`). Do not edit by hand.
+- `site/vendor/`: copies of `d3-array`, `d3-geo`, and `topojson-client`.
 
 Outside `site/`:
 
 - `SOURCES.md`: where each fact comes from, the political choices, and the facts to check again.
 - `scripts/check-data.js`: the data checks.
+- `scripts/build-map.sh`: builds `site/map/` and `site/vendor/` from Natural Earth and npm packages. Run it only when the map source or a library version changes.
 - `cloudflare.config.ts` and `wrangler.config.ts`: the deploy setup (see below).
 
 ## Commands
@@ -25,7 +28,7 @@ Outside `site/`:
 - `npm install`: install `cf` and `wrangler` (exact versions, for development and deploy only).
 - `npm run dev`: run the app with `cf dev` at http://localhost:8787, in the local Workers runtime.
 - `python3 -m http.server -d site`: run the app with no install, at http://localhost:8000. You can also open `site/index.html` directly.
-- `npm run check`: check the data. Run it after each change to `site/data.js` or `site/flags/`. It exits with code 1 on a problem.
+- `npm run check`: check the data, the flags, and the maps (every capital must lie on its own country or state). Run it after each change to `site/data.js`, `site/flags/`, or `site/map/`. It exits with code 1 on a problem. It needs `npm install` first.
 - `npm run deploy`: run the data check, then `cf deploy`. Sign in first with `npx cf auth login`.
 
 ## Deploy
@@ -65,4 +68,10 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
   - An answer is "close" if it is within an edit distance of about 20% of the length of the closest typo target. The tolerance is never less than 1.
   - A typo is "no" if an answer of another item in the deck is equally close or closer.
   - A "close" answer counts as correct.
+- **Map.** The section under the question box draws the location of the current item. The "Show map" switch is saved in `geo-settings-v1`. The map scripts load (in order, because `d3-geo` needs `d3-array`) only when the map is on.
+  - World items use Equal Earth, turned to the capital's longitude so the country never crosses the map edge. The zoom fits the main parts of the country (`focusParts()`: parts within 1500 km of the capital, or at least 20% of the largest part), plus a 6° circle around the capital for context.
+  - A country too small to see gets a ring around each island group.
+  - US states use Albers USA and always show the whole country.
+  - After the answer, a dot and a label mark the capital.
+  - `drawMap()` skips countries outside the view, using a center and radius computed once for each country.
 - **Scheduling.** `pickNext()` does a weighted random pick. Wrong answers and new items increase the weight, and each streak step halves it. An item is "mastered" when its streak is `MASTERED_AT` (4) or more.

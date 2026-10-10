@@ -13,13 +13,14 @@
   // country shares progress between its continent deck and the world deck,
   // while the US state Georgia and the country Georgia stay separate.
   // `group` lets multiple choice prefer wrong options from the same region.
-  const stateItem = ([name, capital]) => ({
+  const stateItem = ([name, capital, lat, lng]) => ({
     key: "state:" + name,
     prompt: name,
     answer: capital,
     accepted: [capital],
     typoTargets: [capital],
     group: "us",
+    map: { kind: "us", id: name, lat, lng },
   });
   const capitalItem = (c) => ({
     key: "capital:" + c.code,
@@ -33,6 +34,7 @@
     answerAlso: c.capitalAlso,
     note: c.capitalNote,
     flag: c.code,
+    map: { kind: "world", id: c.code, lat: c.lat, lng: c.lng },
     group: c.continent,
   });
 
@@ -738,6 +740,7 @@
     showQuestion();
     renderStreakDots();
     renderStats();
+    renderMap(false);
   }
 
   // Show the result line, plus the item's note (e.g. "South Africa has three capitals").
@@ -751,6 +754,7 @@
     }
     feedbackEl.className = "feedback " + cls;
     phase = "revealed";
+    renderMap(true);
     saveProgress();
     renderStreakDots();
     renderStats();
@@ -931,6 +935,211 @@
     if (phase === "asking" && isEasy() && !dialogOpen() && /^[1-9]$/.test(e.key)) {
       choicesEl.querySelector(`.choice[data-key="${e.key}"]`)?.click();
     }
+  });
+
+  // --- Map -------------------------------------------------------------
+  // The map scripts and data load only when the map is on. They are .js
+  // files (not fetched JSON), so the map also works from file://.
+  const MAP_SCRIPTS = [
+    "vendor/d3-array.min.js",
+    "vendor/d3-geo.min.js",
+    "vendor/topojson-client.min.js",
+    "map/world.js",
+    "map/us-states.js",
+  ];
+  const SETTINGS_KEY = "geo-settings-v1";
+  const MAP_W = 480;
+  const MAP_H = 300;
+  const settings = { showMap: true, ...readJSON(SETTINGS_KEY, {}) };
+  const mapFigureEl = $("mapFigure");
+  const mapSvgEl = $("mapSvg");
+  const mapCaptionEl = $("mapCaption");
+  let mapData = null;
+  let mapLoading = null;
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = src;
+      el.onload = resolve;
+      el.onerror = () => reject(new Error("Could not load " + src));
+      document.head.appendChild(el);
+    });
+  }
+
+  function loadMap() {
+    if (!mapLoading) {
+      // In order: d3-geo needs d3-array.
+      mapLoading = MAP_SCRIPTS.reduce(
+        (p, src) => p.then(() => loadScript(src)),
+        Promise.resolve(),
+      ).then(() => {
+        const w = window.WORLD_MAP;
+        const u = window.US_MAP;
+        const countries = topojson.feature(w, w.objects.countries).features;
+        const states = topojson.feature(u, u.objects.states).features;
+        // Center and radius of each country, used to skip countries that
+        // are far outside the view.
+        for (const f of countries) {
+          f.center = d3.geoCentroid(f);
+          let r = 0;
+          const walk = (c) => {
+            if (typeof c[0] === "number") r = Math.max(r, d3.geoDistance(c, f.center));
+            else c.forEach(walk);
+          };
+          walk(f.geometry.coordinates);
+          f.radius = r;
+        }
+        mapData = {
+          countries,
+          countryById: new Map(countries.map((f) => [f.properties.iso2, f])),
+          states,
+          stateById: new Map(states.map((f) => [f.properties.name, f])),
+          nation: topojson.feature(u, u.objects.nation),
+        };
+      });
+    }
+    return mapLoading;
+  }
+
+  // The parts of a country to zoom to: the part at or near the capital and
+  // any other big part. Far, small parts (e.g. French Guiana for France)
+  // still show in the highlight color, but they do not set the zoom.
+  function focusParts(shape, capital) {
+    const g = shape.geometry;
+    if (g.type !== "MultiPolygon") return shape;
+    const parts = g.coordinates.map((coords) => {
+      const poly = { type: "Polygon", coordinates: coords };
+      return {
+        coords,
+        area: d3.geoArea(poly),
+        near: d3.geoDistance(d3.geoCentroid(poly), capital) * 6371 < 1500,
+      };
+    });
+    const largest = Math.max(...parts.map((p) => p.area));
+    const keep = parts.filter((p) => p.near || p.area >= largest * 0.2);
+    return {
+      type: "Feature",
+      geometry: { type: "MultiPolygon", coordinates: keep.map((p) => p.coords) },
+    };
+  }
+
+  function drawMap(item, revealed) {
+    const m = item.map;
+    const capital = [m.lng, m.lat];
+    const pad = 14;
+    const extent = [
+      [pad, pad],
+      [MAP_W - pad, MAP_H - pad],
+    ];
+    let projection, shapes, target;
+    if (m.kind === "us") {
+      shapes = mapData.states;
+      target = mapData.stateById.get(m.id);
+      projection = d3.geoAlbersUsa().fitExtent(extent, mapData.nation);
+    } else {
+      shapes = mapData.countries;
+      target = mapData.countryById.get(m.id);
+      // About 650 km around the capital always shows, so a small country
+      // appears with its neighbors.
+      const context = { type: "Feature", geometry: d3.geoCircle().center(capital).radius(6)() };
+      projection = d3
+        .geoEqualEarth()
+        .rotate([-m.lng, 0])
+        .fitExtent(extent, {
+          type: "FeatureCollection",
+          features: target ? [focusParts(target, capital), context] : [context],
+        });
+    }
+    const path = d3.geoPath(projection);
+    const parts = [];
+    let ringed = false;
+    // The view as a circle on the globe: its center and the farthest corner.
+    let viewCenter = null;
+    let viewRadius = Infinity;
+    if (m.kind === "world") {
+      viewCenter = projection.invert([MAP_W / 2, MAP_H / 2]);
+      const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) =>
+        projection.invert(p),
+      );
+      if (viewCenter && corners.every((c) => c && Number.isFinite(c[0])))
+        viewRadius = Math.max(...corners.map((c) => d3.geoDistance(c, viewCenter)));
+    }
+    const inView = (f) =>
+      !viewCenter || d3.geoDistance(f.center, viewCenter) - f.radius < viewRadius;
+    if (m.kind === "world") {
+      parts.push(`<path class="map-water" d="${path({ type: "Sphere" })}"/>`);
+      parts.push(`<path class="map-grid" d="${path(d3.geoGraticule10())}"/>`);
+    }
+    for (const f of shapes) {
+      if (f === target || !inView(f)) continue;
+      const d = path(f);
+      if (d) parts.push(`<path class="map-land" d="${d}"/>`);
+    }
+    if (target) {
+      parts.push(`<path class="map-target" d="${path(target)}"/>`);
+      // Too small to see: ring each island group (e.g. all of Kiribati).
+      if (path.area(target) < 40) {
+        const g = target.geometry;
+        const polys = g.type === "MultiPolygon" ? g.coordinates : [g.coordinates];
+        const rings = [];
+        for (const coords of polys) {
+          const p = projection(d3.geoCentroid({ type: "Polygon", coordinates: coords }));
+          if (!p || p[0] < 0 || p[1] < 0 || p[0] > MAP_W || p[1] > MAP_H) continue;
+          if (rings.some(([x, y]) => Math.hypot(x - p[0], y - p[1]) < 16)) continue;
+          rings.push(p);
+        }
+        for (const [x, y] of rings)
+          parts.push(`<circle class="map-ring" cx="${x}" cy="${y}" r="10"/>`);
+        ringed = rings.length > 0;
+      }
+    }
+    if (revealed) {
+      const p = projection(capital);
+      if (p) {
+        const [x, y] = p;
+        const right = x < MAP_W * 0.6;
+        parts.push(`<circle class="map-capital" cx="${x}" cy="${y}" r="4.5"/>`);
+        parts.push(
+          `<text class="map-label" x="${x + (right ? 9 : -9)}" y="${y + 4}" text-anchor="${right ? "start" : "end"}"></text>`,
+        );
+      }
+    }
+    mapSvgEl.innerHTML = parts.join("");
+    const label = mapSvgEl.querySelector(".map-label");
+    if (label) label.textContent = item.answer;
+    const where = item.prompt;
+    mapSvgEl.setAttribute(
+      "aria-label",
+      revealed ? `Map of ${where}, with ${item.answer} marked` : `Map of ${where}`,
+    );
+    const marked = `${where} is ${ringed ? "circled" : "shaded"}.`;
+    mapCaptionEl.textContent = revealed
+      ? `${marked} The dot marks ${item.answer}.`
+      : marked;
+  }
+
+  function renderMap(revealed) {
+    $("mapToggle").checked = settings.showMap;
+    mapFigureEl.hidden = !settings.showMap;
+    if (!settings.showMap || !current?.map) return;
+    const item = current;
+    loadMap()
+      .then(() => {
+        // Skip if the card changed while the map was loading.
+        if (item === current) drawMap(item, revealed);
+      })
+      .catch(() => {
+        mapLoading = null;
+        mapSvgEl.innerHTML = "";
+        mapCaptionEl.textContent = "The map could not load.";
+      });
+  }
+
+  $("mapToggle").addEventListener("change", (e) => {
+    settings.showMap = e.target.checked;
+    writeJSON(SETTINGS_KEY, settings);
+    renderMap(phase === "revealed");
   });
 
   // Init
