@@ -1,0 +1,49 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Overview
+
+The project is a geography flashcard quiz for children: US state capitals and the capitals of the 193 UN member states. Later phases add flags, currencies, languages, a map, points, and games (see `.omc/plans/geo-games-plan.md` when it exists locally).
+
+The app is static. It has no build step, no dependencies, and no CI.
+
+- `index.html`: the markup and the screens.
+- `styles.css`: the styles.
+- `data.js`: `COUNTRIES` and `US_STATES`. This file is the source of truth for all facts. The comment at the top lists the fields.
+- `app.js`: one IIFE with all the logic.
+- `flags/<code>.svg`: one flag for each country, from Wikimedia Commons.
+- `SOURCES.md`: where each fact comes from, the political choices, and the facts to check again.
+
+## Commands
+
+- Run the app: `python3 -m http.server`, then open http://localhost:8000. You can also open `index.html` directly.
+- Check the data: `node scripts/check-data.js`. Run it after each change to `data.js` or `flags/`. It exits with code 1 on a problem.
+
+Load the scripts with classic `<script>` tags, not ES modules. A browser blocks modules when the page opens from `file://`. `data.js` declares top-level `const`s that `app.js` reads as globals.
+
+## Data rules
+
+- Find a source for each changed fact, and record it in `SOURCES.md`. Facts change. For example, Equatorial Guinea changed its capital and Nauru changed its name to Naoero in 2026.
+- `capitalAlso` holds other official capitals, which the quiz accepts. A city where the government only works (The Hague, Cotonou) goes in `capitalNote`, not in `capitalAlso`.
+- A multiple-choice question must never show a correct answer as a wrong option. For languages, `otherLanguages` lists every language that must never be a wrong option. For currencies, `currency.also` does the same.
+- `scripts/check-data.js` copies `normalize()` from `app.js`. Change both together.
+
+## Architecture
+
+- **Deck items.** `app.js` changes the data into deck items: `{ key, prompt, answer, accepted, typoTargets, note, flag, group }`. Easy mode takes its wrong options from other items in the deck, from the same `group` (continent) first. The `key` names the progress entry: `capital:<code>` for countries and `state:<name>` for US states. A country shares one entry between its continent deck and the `world` deck. The US state Georgia and the country Georgia stay separate.
+- **Deck selector.** The `<select id="deckSelect">` options are hardcoded in `index.html`. When you add a deck, update `DECKS` in `app.js` and the `<option>` list together.
+- **Players and turns.** Each session starts on the "Who is playing?" dialog. There, players are added, selected for this game, and given a level: `easy` (4 answer buttons) or `type`. `players.playing` is the turn order. `goNext()` passes the turn after each card. Progress, stats, and `pickNext()` always use the player whose turn it is (`turnPlayer()`).
+- **Storage.** All storage is `localStorage`, on one device.
+  - `geo-players-v1`: `{ list: [{ id, name, avatar, level }], playing: [id], turn }`.
+  - `geo-progress-v3:<playerId>`: progress for each player.
+  - `capitals-deck-v1`: the last deck.
+  - `capitals-progress-v2` is the old single-player data. The first player ever gets it through `migrateV2Progress()`. Then `geo-migrated-v2` stops a second migration. When you change the stored data shape, add a new versioned key and a migration.
+- **Dialogs.** An open dialog sets `inert` on `.app`. `closePlayers()` and `closeModal()` do nothing if their dialog is not open, because Escape calls both.
+- **Answer matching.** `classify()` returns `"exact"`, `"close"`, or `"no"`.
+  - `normalize()` removes accents and punctuation, and changes "Saint" to "St".
+  - `accepted` must match exactly. Typos are allowed only against `typoTargets` (the capital and `capitalAlso`), so a short spelling like "DC" never accepts "d".
+  - An answer is "close" if it is within an edit distance of about 20% of the length of the closest typo target. The tolerance is never less than 1.
+  - A typo is "no" if an answer of another item in the deck is equally close or closer.
+  - A "close" answer counts as correct.
+- **Scheduling.** `pickNext()` does a weighted random pick. Wrong answers and new items increase the weight, and each streak step halves it. An item is "mastered" when its streak is `MASTERED_AT` (4) or more.
