@@ -1049,3 +1049,21 @@ button.danger:hover {
 .map-toggle input:disabled {
   cursor: default;
 }
+
+.edition-link {
+  display: block;
+  margin-top: 8px;
+  font-size: 15px;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.edition-link strong {
+  font-style: normal;
+  color: var(--navy);
+  border-bottom: 1px solid var(--navy);
+}
+.edition-link:hover strong {
+  color: var(--ink);
+  border-color: var(--ink);
+}

@@ -15,11 +15,14 @@ The app is static, with no build step and no CI. Only the files in `site/` are p
 - `site/flags/<code>.svg`: one flag for each country, from Wikimedia Commons.
 - `site/map/world.js`, `site/map/us-states.js`: generated map data (TopoJSON wrapped as `window.WORLD_MAP` and `window.US_MAP`). Do not edit by hand.
 - `site/vendor/`: copies of `d3-array`, `d3-geo`, and `topojson-client`.
+- `site/facts.js`: `FACTS` for the chase game: area, population, land neighbors, landlocked.
+- `site/chase.html`, `chase.js`, `chase.css`, `chase-engine.js`: **The Great Atlas Chase**, a second page (see below).
 
 Outside `site/`:
 
 - `SOURCES.md`: where each fact comes from, the political choices, and the facts to check again.
-- `scripts/check-data.js`: the data checks.
+- `scripts/check-data.js`: the data checks (also for `facts.js`).
+- `scripts/test-chase.js`: the chase engine test (5,000 cases per level).
 - `scripts/build-map.sh`: builds `site/map/` and `site/vendor/` from Natural Earth and npm packages. Run it only when the map source or a library version changes.
 - `cloudflare.config.ts` and `wrangler.config.ts`: the deploy setup (see below).
 
@@ -28,8 +31,9 @@ Outside `site/`:
 - `npm install`: install `cf` and `wrangler` (exact versions, for development and deploy only).
 - `npm run dev`: run the app with `cf dev` at http://localhost:8787, in the local Workers runtime.
 - `python3 -m http.server -d site`: run the app with no install, at http://localhost:8000. You can also open `site/index.html` directly.
+- `npm test`: `npm run check` plus the chase engine test.
 - `npm run check`: check the data, the flags, and the maps (every capital must lie on its own country or state). Run it after each change to `site/data.js`, `site/flags/`, or `site/map/`. It exits with code 1 on a problem. It needs `npm install` first.
-- `npm run deploy`: run the data check, then `cf deploy`. Sign in first with `npx cf auth login`.
+- `npm run deploy`: run `npm test`, then `cf deploy`. Sign in first with `npx cf auth login` (from a phone: `npx cf auth login --no-browser`, then open the link and enter the code).
 
 ## Deploy
 
@@ -85,3 +89,14 @@ Load the scripts with classic `<script>` tags, not ES modules. A browser blocks 
   - Input: the + / − / reset buttons, a drag, a two-finger pinch (pointer events), a double-click, and Ctrl/⌘ + wheel (a trackpad pinch). A plain wheel scrolls the page. `touch-action: pan-y` keeps a vertical swipe for page scrolling until the map is zoomed.
   - Each new card resets the view. Showing the answer keeps it.
 - **Scheduling.** `pickNext()` does a weighted random pick. Wrong answers and new items increase the weight, and each streak step halves it. An item is "mastered" when its streak is `MASTERED_AT` (4) or more.
+
+## The Great Atlas Chase (`site/chase.html`)
+
+A detective game: the players follow a thief across the world. It is its own name and story; do not use "Carmen Sandiego" names or characters (trademarks).
+
+- **Engine** (`chase-engine.js`, global `ChaseEngine`): pure functions, no page code. `makeCase({ seed, level })` gives `{ start, steps: [{ from, to, clues, trait?, options? }], thief, loot, days }`. The same seed gives the same case. `solve(clues)` returns every country that fits all clues; each step must solve to exactly its `to` (`npm test` checks 5,000 cases per level).
+  - Clue types: Easy uses capital, flag, continent, first letter (one clear clue plus one that narrows). Normal adds money, language, neighbor, coast; Hard adds largest/smallest/most/fewest and number of neighbors. Normal and Hard prefer 2–3 narrowing clues from different types that only work together, and use the first letter last.
+  - Largest/smallest/most/fewest come from `FACTS` at run time, only with a 20% lead over the runner-up; "largest in Asia" is excluded (Russia is in the Europe deck).
+  - `FLAG_TWINS` must match the one in `app.js`.
+  - Suspects: hat, pet, and hobby pair the six suspects differently, so any two of those traits name exactly one suspect. Each case reveals two of them (plus a snack).
+- **Page** (`chase.js`): the detectives are the quiz players (`geo-players-v1`), and they take turns by name. Easy picks one of 4 cards, Normal taps the map (a tap near any island of a tiny country counts), and Hard types the name. Each flight takes a day; there are 3 spare days for wrong guesses. A wrong guess is a dead end that adds a clear clue (`extraClue`). It never removes points. The lineup picks the thief from the notebook. Cases are saved in `chase-casebook-v1`.

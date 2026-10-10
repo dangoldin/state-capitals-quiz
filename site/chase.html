@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f6f1e7" />
+    <title>The Great Atlas Chase</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="chase.css" />
+  </head>
+  <body>
+    <div class="app chase">
+      <header class="masthead">
+        <div class="masthead-bar">
+          <a class="back-link" href="index.html">← The World Register</a>
+          <span class="case-count" id="caseCount"></span>
+        </div>
+        <h1 class="masthead-title">The Great Atlas Chase</h1>
+        <p class="masthead-motto">A Case File of The World Register</p>
+        <div class="masthead-dateline">
+          <span id="dateLine"></span>
+          <span>Detective Desk</span>
+        </div>
+      </header>
+
+      <!-- Setup: detectives and level -->
+      <section class="screen" id="setupScreen">
+        <h2 class="section-title">The Detective Desk</h2>
+        <p class="lede">
+          A thief is loose somewhere in the world! Choose the detectives and
+          the level, then open a new case.
+        </p>
+        <div class="desk-label">Detectives</div>
+        <p class="desk-hint" id="detectiveHint"></p>
+        <div class="detective-list" id="detectiveList"></div>
+        <form class="add-detective" id="addDetectiveForm" autocomplete="off">
+          <input
+            type="text"
+            id="newDetectiveName"
+            placeholder="Add a detective"
+            maxlength="20"
+            autocapitalize="words"
+            spellcheck="false"
+          />
+          <button type="submit" class="action dunno">Add</button>
+        </form>
+        <div class="desk-label">Level</div>
+        <div class="segmented level-pick" id="levelPick" role="radiogroup" aria-label="Level">
+          <button type="button" role="radio" data-level="easy">Easy</button>
+          <button type="button" role="radio" data-level="normal">Normal</button>
+          <button type="button" role="radio" data-level="hard">Hard</button>
+        </div>
+        <p class="desk-hint" id="levelNote"></p>
+        <button type="button" class="action next open-case" id="openCaseBtn">
+          Open a new case
+        </button>
+      </section>
+
+      <!-- The case file -->
+      <section class="screen" id="caseScreen" hidden>
+        <div class="case-file">
+          <div class="case-stamp">Case No. <span id="caseNo"></span></div>
+          <p class="case-headline" id="caseHeadline"></p>
+          <p class="case-text" id="caseText"></p>
+          <p class="case-text case-team" id="caseTeam"></p>
+          <button type="button" class="action next" id="acceptBtn">
+            Accept the case
+          </button>
+        </div>
+      </section>
+
+      <!-- A city on the trail -->
+      <section class="screen" id="cityScreen" hidden>
+        <p class="arrival" id="arrivalNote" aria-live="polite" hidden></p>
+        <div class="trip-bar">
+          <span id="dayText"></span>
+          <span id="stopText"></span>
+        </div>
+        <div class="city-head">
+          <img class="flag" id="cityFlag" alt="" />
+          <div>
+            <div class="prompt">You are in</div>
+            <div class="state city-name" id="cityName"></div>
+            <div class="name-note" id="cityCountry"></div>
+          </div>
+        </div>
+        <figure class="map-figure chase-map">
+          <svg id="chaseMap" viewBox="0 0 480 300" role="img" aria-label="Map"></svg>
+          <figcaption id="chaseMapCaption"></figcaption>
+        </figure>
+        <h3 class="clue-head">What the witnesses say</h3>
+        <ol class="clue-list" id="clueList"></ol>
+        <div class="turn-ask" id="turnAsk"></div>
+        <div class="answer-area" id="answerArea"></div>
+        <div class="feedback" id="chaseFeedback" aria-live="polite"></div>
+        <div class="notebook" id="notebook"></div>
+      </section>
+
+      <!-- The lineup -->
+      <section class="screen" id="lineupScreen" hidden>
+        <h2 class="section-title">The Lineup</h2>
+        <p class="lede" id="lineupAsk"></p>
+        <div class="notebook" id="lineupNotes"></div>
+        <div class="suspects" id="suspectList"></div>
+        <div class="feedback" id="lineupFeedback" aria-live="polite"></div>
+      </section>
+
+      <!-- Case closed -->
+      <section class="screen" id="endScreen" hidden>
+        <div class="case-file">
+          <div class="case-stamp" id="endStamp"></div>
+          <p class="case-headline" id="endHeadline"></p>
+          <p class="case-text" id="endText"></p>
+        </div>
+        <figure class="map-figure chase-map">
+          <svg id="endMap" viewBox="0 0 480 300" role="img" aria-label="Map of the route"></svg>
+          <figcaption>The thief's route.</figcaption>
+        </figure>
+        <button type="button" class="action next" id="newCaseBtn">
+          Back to the Detective Desk
+        </button>
+      </section>
+
+      <div class="hint">Cases are saved on this device.</div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="facts.js"></script>
+    <script src="vendor/d3-array.min.js"></script>
+    <script src="vendor/d3-geo.min.js"></script>
+    <script src="vendor/topojson-client.min.js"></script>
+    <script src="map/world.js"></script>
+    <script src="chase-engine.js"></script>
+    <script src="chase.js"></script>
+  </body>
+</html>
