@@ -732,14 +732,14 @@
   // Draw the map: countries, the flights so far, and the city markers.
   // `here` is the current city's country; `selected` is the country the
   // player tapped (Normal); `choices` are the countries a hint shades.
-  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [], stamped = [] }) {
+  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [], stamped = [], cull = true }) {
     const path = d3.geoPath(projection);
     const center = projection.invert([MAP_W / 2, MAP_H / 2]);
     const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) => projection.invert(p));
     let viewR = Infinity;
     if (center && corners.every((c) => c && Number.isFinite(c[0])))
       viewR = Math.max(...corners.map((c) => d3.geoDistance(c, center)));
-    const inView = (f) => !center || d3.geoDistance(f.center, center) - f.radius < viewR;
+    const inView = (f) => !cull || !center || d3.geoDistance(f.center, center) - f.radius < viewR;
     const parts = [
       `<path class="map-water" d="${path({ type: "Sphere" })}"/>`,
       `<path class="map-grid" d="${path(d3.geoGraticule10())}"/>`,
@@ -769,6 +769,13 @@
       if (!f || path.area(f) >= 40) continue;
       const p = projection(capitalPoint(id));
       if (p) parts.push(`<circle class="${id === selected ? "map-ring" : "map-choice-ring"}" cx="${p[0]}" cy="${p[1]}" r="10"/>`);
+    }
+    // A stamped country too small to see gets a dot at its capital.
+    for (const id of stamped) {
+      const f = shapeById.get(id);
+      if (!f || path.area(f) >= 12) continue;
+      const p = projection(capitalPoint(id));
+      if (p) parts.push(`<circle class="map-stamp-dot" cx="${p[0]}" cy="${p[1]}" r="2.5"/>`);
     }
     // Flight lines follow the great circle between capitals.
     for (let i = 1; i < route.length; i++) {
@@ -1202,7 +1209,9 @@
     const stamped = Object.keys(passport).filter((k) => byCode[k]);
     $("passportCount").textContent = `${stamped.length} of ${COUNTRIES.length} countries stamped.`;
     const world = d3.geoEqualEarth().fitExtent(EXTENT, { type: "Sphere" });
-    drawMap($("passportMap"), world, { stamped });
+    // The whole world shows, so draw every country (no culling).
+    drawMap($("passportMap"), world, { stamped, cull: false });
+    renderStampList(passport, stamped);
     const stickers = $("stickers");
     stickers.innerHTML = "";
     const sticker = (icon, name, detail, earned) => {
@@ -1249,6 +1258,50 @@
       cards.appendChild(row);
     }
   }
+
+  // The list of stamped countries, by continent, with flags and dates.
+  function renderStampList(passport, stamped) {
+    $("stampSummary").textContent = stamped.length
+      ? `See the ${stamped.length} stamped ${stamped.length === 1 ? "country" : "countries"}`
+      : "No stamps yet";
+    $("stampDetails").hidden = !stamped.length;
+    const list = $("stampList");
+    list.innerHTML = "";
+    for (const ct of Object.keys(CONTINENT_STICKERS)) {
+      const here = stamped
+        .map((k) => byCode[k])
+        .filter((c) => c.continent === ct)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      if (!here.length) continue;
+      list.appendChild(el("div", "stamp-group", `${CONTINENT_STICKERS[ct]} ${E.CONTINENT_NAMES[ct]} (${here.length})`));
+      const ul = el("ul", "stamp-list");
+      for (const c of here) {
+        const li = el("li", "stamp-item");
+        const img = el("img", "stamp-flag");
+        img.src = flagSrc(c.code);
+        img.alt = "";
+        const date = new Date(passport[c.code] + "T12:00:00");
+        li.append(
+          img,
+          el("span", "stamp-name", c.name),
+          el("span", "stamp-date", isNaN(date) ? "" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" })),
+        );
+        ul.appendChild(li);
+      }
+      list.appendChild(ul);
+    }
+  }
+
+  // The quiz can stamp passports in another tab, or before the browser
+  // brings this page back from its cache. Read the stored data again then.
+  function refreshFiles() {
+    Object.assign(players, readJSON(PLAYERS_KEY, players));
+    if (!$("filesScreen").hidden) showFiles();
+  }
+  window.addEventListener("pageshow", (e) => e.persisted && refreshFiles());
+  window.addEventListener("storage", (e) => {
+    if (e.key && (e.key.startsWith("geo-") || e.key.startsWith("chase-"))) refreshFiles();
+  });
 
   $("filesBtn").addEventListener("click", showFiles);
   $("filesBackBtn").addEventListener("click", () => {
