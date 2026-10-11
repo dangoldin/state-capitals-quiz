@@ -442,6 +442,7 @@ const ChaseEngine = (() => {
   // --- Suspects. Each case has a gang of six. In a gang, any two traits from
   // different groups name exactly one suspect: LAYOUT gives each suspect's
   // value (0–2) in each of the three groups.
+  // Suspects are [id, name, snack, emoji].
   const LAYOUT = [[0, 0, 0], [0, 1, 1], [1, 0, 2], [1, 2, 1], [2, 2, 0], [2, 1, 2]];
   const GANGS = [
     {
@@ -456,12 +457,12 @@ const ChaseEngine = (() => {
           clue: (v) => `The hotel clerk says the thief would not stop talking about ${v}.`, lineup: (v) => `Loves ${v}.` },
       ],
       suspects: [
-        ["kerfuffle", "Countess Kerfuffle", "pickled onions"],
-        ["bubbles", "Baron Von Bubbles", "bubble-tea pearls"],
-        ["dot", "Dizzy Dot", "popcorn"],
-        ["sneeze", "Sly McSneeze", "pepper crackers"],
-        ["pudding", "Professor Pudding", "rice cakes"],
-        ["lollygag", "Lady Lollygag", "lollipops"],
+        ["kerfuffle", "Countess Kerfuffle", "pickled onions", "🦚"],
+        ["bubbles", "Baron Von Bubbles", "bubble-tea pearls", "🛁"],
+        ["dot", "Dizzy Dot", "popcorn", "🌀"],
+        ["sneeze", "Sly McSneeze", "pepper crackers", "🤧"],
+        ["pudding", "Professor Pudding", "rice cakes", "🍮"],
+        ["lollygag", "Lady Lollygag", "lollipops", "🍭"],
       ],
     },
     {
@@ -476,12 +477,12 @@ const ChaseEngine = (() => {
           clue: (v) => `The waiter says the thief kept ${v} all through lunch.`, lineup: (v) => `Keeps ${v}.` },
       ],
       suspects: [
-        ["mischief", "Madame Mischief", "jelly beans"],
-        ["crumpet", "Captain Crumpet", "cheese puffs"],
-        ["pockets", "Penny Pockets", "sour gummies"],
-        ["sniffles", "Sir Sniffles", "ginger cookies"],
-        ["gadget", "Granny Gadget", "marshmallows"],
-        ["mumble", "Mister Mumble", "toffee"],
+        ["mischief", "Madame Mischief", "jelly beans", "😈"],
+        ["crumpet", "Captain Crumpet", "cheese puffs", "⚓"],
+        ["pockets", "Penny Pockets", "sour gummies", "💰"],
+        ["sniffles", "Sir Sniffles", "ginger cookies", "🌡️"],
+        ["gadget", "Granny Gadget", "marshmallows", "🔧"],
+        ["mumble", "Mister Mumble", "toffee", "💬"],
       ],
     },
     {
@@ -496,12 +497,12 @@ const ChaseEngine = (() => {
           clue: (v) => `The thief asked a shopkeeper for old ${v}. The thief collects them!`, lineup: (v) => `Collects ${v}.` },
       ],
       suspects: [
-        ["doodle", "Duchess Doodle", "cheese sticks"],
-        ["wally", "Wobbly Wally", "fizzy sherbet"],
-        ["blunder", "Barnaby Blunder", "banana chips"],
-        ["fiddlesticks", "Fifi Fiddlesticks", "sugared almonds"],
-        ["lumpkin", "Lord Lumpkin", "mint humbugs"],
-        ["zigzag", "Ziggy Zigzag", "dried mango"],
+        ["doodle", "Duchess Doodle", "cheese sticks", "✏️"],
+        ["wally", "Wobbly Wally", "fizzy sherbet", "🎈"],
+        ["blunder", "Barnaby Blunder", "banana chips", "💥"],
+        ["fiddlesticks", "Fifi Fiddlesticks", "sugared almonds", "🎀"],
+        ["lumpkin", "Lord Lumpkin", "mint humbugs", "🥔"],
+        ["zigzag", "Ziggy Zigzag", "dried mango", "⚡"],
       ],
     },
     {
@@ -516,22 +517,23 @@ const ChaseEngine = (() => {
           clue: (v) => `A juggler made the thief laugh. It sounded like ${v}!`, lineup: (v) => `Laughs with ${v}.` },
       ],
       suspects: [
-        ["applesauce", "Admiral Applesauce", "pretzels"],
-        ["cuckoo", "Count Cuckoo", "rice crackers"],
-        ["marmalade", "Miss Marmalade", "fig rolls"],
-        ["bumblebee", "Bonnie Bumblebee", "honey cakes"],
-        ["tiptoe", "Tiptoe Tobias", "candied ginger"],
-        ["lemonade", "Lady Lemonade", "oat biscuits"],
+        ["applesauce", "Admiral Applesauce", "pretzels", "🍎"],
+        ["cuckoo", "Count Cuckoo", "rice crackers", "🐦"],
+        ["marmalade", "Miss Marmalade", "fig rolls", "🍊"],
+        ["bumblebee", "Bonnie Bumblebee", "honey cakes", "🐝"],
+        ["tiptoe", "Tiptoe Tobias", "candied ginger", "👣"],
+        ["lemonade", "Lady Lemonade", "oat biscuits", "🍋"],
       ],
     },
   ];
-  // Each suspect: { id, name, snack, gang, traits: { groupKey: value } }.
+  // Each suspect: { id, name, snack, emoji (for the trading card), gang,
+  // traits: { groupKey: value } }.
   const SUSPECTS = [];
   for (const g of GANGS) {
-    g.members = g.suspects.map(([id, name, snack], i) => {
+    g.members = g.suspects.map(([id, name, snack, emoji], i) => {
       const traits = {};
       g.groups.forEach((grp, j) => (traits[grp.key] = grp.values[LAYOUT[i][j]]));
-      const s = { id, name, snack, gang: g.id, traits };
+      const s = { id, name, snack, emoji, gang: g.id, traits };
       SUSPECTS.push(s);
       return s;
     });

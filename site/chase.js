@@ -37,6 +37,49 @@
     hard: "Hard: type the next country. Tricky clues, five flights.",
   };
 
+  // --- Rewards: rank badges, the sticker passport, and thief cards.
+  // Ranks come from the number of solved cases a detective was on.
+  const RANKS = [
+    { at: 0, name: "Cadet", badge: "🔍" },
+    { at: 1, name: "Junior Detective", badge: "⭐" },
+    { at: 3, name: "Detective", badge: "🌟" },
+    { at: 10, name: "Sergeant", badge: "🎖️" },
+    { at: 25, name: "Inspector", badge: "🏅" },
+    { at: 50, name: "Chief Inspector", badge: "🏆" },
+  ];
+  const rankFor = (solved) => RANKS.filter((r) => solved >= r.at).pop();
+  const nextRank = (solved) => RANKS.find((r) => r.at > solved) || null;
+  // The passport is shared with the quiz: { CODE: "YYYY-MM-DD" }.
+  const passportKey = (id) => "geo-passport-v1:" + id;
+  const CONTINENT_STICKERS = {
+    africa: "🦁",
+    asia: "🐼",
+    europe: "🏰",
+    northAmerica: "🦅",
+    southAmerica: "🦜",
+    oceania: "🐨",
+  };
+  const COUNT_STICKERS = [
+    { at: 10, name: "Globetrotter", icon: "✈️" },
+    { at: 25, name: "Explorer", icon: "🧭" },
+    { at: 50, name: "Adventurer", icon: "🎒" },
+    { at: 100, name: "World Traveler", icon: "🌍" },
+    { at: 193, name: "Every country!", icon: "👑" },
+  ];
+  // Notes the thief leaves for the detectives. `n` is a detective's name.
+  const TAUNTS = [
+    (n) => `Too slow, Detective ${n}! Ha ha!`,
+    (n) => `You will never find me, ${n}! I am much too clever.`,
+    () => "Catch me if you can! (You can't.)",
+    (n) => `Nice try, ${n}! I left this note just to say hello.`,
+    (n, loot) => `${loot[0].toUpperCase() + loot.slice(1)} looks great in my suitcase, ${n}!`,
+    (n) => `Are you still following me, ${n}? Go home and eat a sandwich!`,
+    () => "I am already on my next plane. Toodle-oo!",
+    () => "Roses are red, the sea is blue, I'm far away, and you have no clue!",
+    (n) => `Psst, ${n}... look behind you! Just kidding.`,
+    (n) => `Dear ${n}, the weather here is lovely. Wish you were NOT here!`,
+  ];
+
   function readJSON(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -56,6 +99,23 @@
   players.playing = (players.playing || []).filter((id) => players.list.some((p) => p.id === id));
   const savePlayers = () => writeJSON(PLAYERS_KEY, players);
   const playerById = (id) => players.list.find((p) => p.id === id);
+  // The solved cases a player was on. Old cases saved only the names.
+  const onCase = (p, entry) => (entry.detectiveIds ? entry.detectiveIds.includes(p.id) : (entry.detectives || []).includes(p.name));
+  const solvedBy = (p) => readJSON(CASEBOOK_KEY, []).filter((e) => e.solved && onCase(p, e));
+  const rankOf = (p) => rankFor(solvedBy(p).length);
+  // Stamp a country in each detective's passport. Returns true when it is a
+  // new stamp for at least one of them.
+  function stampPassports(ids, code) {
+    let added = false;
+    for (const id of ids) {
+      const passport = readJSON(passportKey(id), {});
+      if (passport[code]) continue;
+      passport[code] = new Date().toISOString().slice(0, 10);
+      writeJSON(passportKey(id), passport);
+      added = true;
+    }
+    return added;
+  }
   let level = readJSON(LEVEL_KEY, "easy");
   if (!E.LEVELS.includes(level)) level = "easy";
 
@@ -139,7 +199,7 @@
   }
 
   // --- Screens
-  const SCREENS = ["setupScreen", "caseScreen", "cityScreen", "lineupScreen", "endScreen"];
+  const SCREENS = ["setupScreen", "filesScreen", "caseScreen", "cityScreen", "lineupScreen", "endScreen"];
   function show(id) {
     for (const s of SCREENS) $(s).hidden = s !== id;
     window.scrollTo({ top: 0 });
@@ -297,13 +357,14 @@
     $("caseText").textContent =
       `${c.story} The thief is one of ${E.gangById[c.gang].name}. ` +
       `Follow the trail, find out who the thief is, and catch them in ${game.days} days.`;
-    const names = teamNames();
-    $("caseTeam").textContent = `Assigned to ${names.length > 1 ? "Detectives" : "Detective"} ${listNames(names)}.`;
+    const team = game.detectives.map(playerById);
+    $("caseTeam").textContent = `Assigned to ${listNames(team.map((p) => `${rankOf(p).name} ${p.name}`))}.`;
     show("caseScreen");
   });
 
   $("acceptBtn").addEventListener("click", () => {
-    showCity();
+    const added = stampPassports(game.detectives, game.c.start);
+    showCity(added ? `🛂 New passport stamp: ${byCode[game.c.start].name}!` : undefined);
   });
 
   function currentStep() {
@@ -351,6 +412,8 @@
     $("arrivalNote").textContent = message || "";
     $("arrivalNote").hidden = !message;
     $("arrivalNote").className = "arrival" + (message && message.startsWith("Dead end") ? " dead-end" : "");
+    $("tauntNote").textContent = game.taunt ? `📝 A note from the thief: "${game.taunt}"` : "";
+    $("tauntNote").hidden = !game.taunt;
     $("chaseFeedback").textContent = "";
     $("chaseFeedback").className = "feedback";
     renderAnswer();
@@ -487,6 +550,10 @@
     passTurn();
     if (code === s.to) {
       game.flown.push(code);
+      const stamped = stampPassports(game.detectives, code);
+      // The plane flies the new line on the map, and sometimes the thief
+      // leaves a note (not on the way to the lineup).
+      game.flyAnim = { start: null };
       game.wrongHere = [];
       game.selected = null;
       game.choices = null;
@@ -498,7 +565,12 @@
       const found =
         `Right, ${who.name}! ${pickOne(ARRIVALS)} We're on the trail in ${placeOf(code)}.` +
         (free ? " A friendly pilot gave us a free ride, so we lost no day!" : "") +
-        (facts.length ? ` Did you know? ${facts.join(" ")}` : "");
+        (facts.length ? ` Did you know? ${facts.join(" ")}` : "") +
+        (stamped ? ` 🛂 New passport stamp: ${byCode[code].name}!` : "");
+      game.taunt =
+        game.step < game.c.steps.length && Math.random() < 0.4
+          ? pickOne(TAUNTS)(detective().name, game.c.loot)
+          : null;
       if (game.step >= game.c.steps.length) return showLineup(found);
       return showCity(found);
     }
@@ -508,6 +580,7 @@
     // A wrong pick loses its gold shade, so the hint narrows down.
     if (game.choices) game.choices = game.choices.filter((k) => k !== code);
     if (game.day > game.days) return endCase(false);
+    game.taunt = null;
     const extra = game.extra[game.step];
     const added = E.extraClue(s.to, [...s.clues, ...extra].map((cl) => cl.type));
     if (added) extra.push(added);
@@ -568,6 +641,14 @@
   // --- Case closed
   function endCase(solved, catcher) {
     const thief = suspectById[game.c.thief];
+    const team = game.detectives.map(playerById).filter(Boolean);
+    // Ranks and caught thieves before this case, to show what is new.
+    const before = new Map(
+      team.map((p) => {
+        const cases = solvedBy(p);
+        return [p.id, { rank: rankFor(cases.length), caught: cases.some((e) => e.thief === game.c.thief) }];
+      }),
+    );
     const names = listNames(teamNames());
     const where = placeOf(game.c.steps[game.c.steps.length - 1].to);
     if (solved) {
@@ -604,9 +685,22 @@
       thief: game.c.thief,
       solved,
       detectives: teamNames(),
+      detectiveIds: game.detectives.slice(),
+      route: game.flown.slice(),
       days: game.day,
     });
     writeJSON(CASEBOOK_KEY, book);
+    // Promotions and new thief cards.
+    const news = [];
+    if (solved) {
+      if (team.some((p) => !before.get(p.id).caught)) news.push(`🃏 New thief card: ${thief.emoji} ${thief.name}!`);
+      for (const p of team) {
+        const r = rankOf(p);
+        if (r !== before.get(p.id).rank) news.push(`${r.badge} Promoted! ${p.name} is now a ${r.name}.`);
+      }
+    }
+    $("endPromo").textContent = news.join(" ");
+    $("endPromo").hidden = !news.length;
     show("endScreen");
     drawRouteMap();
   }
@@ -638,7 +732,7 @@
   // Draw the map: countries, the flights so far, and the city markers.
   // `here` is the current city's country; `selected` is the country the
   // player tapped (Normal); `choices` are the countries a hint shades.
-  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [] }) {
+  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [], stamped = [] }) {
     const path = d3.geoPath(projection);
     const center = projection.invert([MAP_W / 2, MAP_H / 2]);
     const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) => projection.invert(p));
@@ -664,7 +758,9 @@
               ? "map-here"
               : highlight.includes(id)
                 ? "map-visited"
-                : "map-land";
+                : stamped.includes(id)
+                  ? "map-stamped"
+                  : "map-land";
       parts.push(`<path class="${cls}" data-id="${id}" d="${d}"/>`);
     }
     // Rings show where a small selected or shaded country is.
@@ -677,7 +773,7 @@
     // Flight lines follow the great circle between capitals.
     for (let i = 1; i < route.length; i++) {
       const d = path({ type: "LineString", coordinates: [capitalPoint(route[i - 1]), capitalPoint(route[i])] });
-      if (d) parts.push(`<path class="flight" d="${d}"/>`);
+      if (d) parts.push(`<path class="flight${i === route.length - 1 ? " last-flight" : ""}" d="${d}"/>`);
     }
     for (const code of route) {
       const p = projection(capitalPoint(code));
@@ -746,10 +842,58 @@
       selected: game.selected,
       choices: game.choices || [],
     });
+    if (game.flyAnim) flyPlane();
     const normal = game.c.level === "normal";
     $("chaseMapCaption").textContent = normal
       ? `You are in ${cityOf(here)}. Tap a country to see its name.`
       : `You are in ${cityOf(here)}. The lines show the trail so far.`;
+  }
+
+  // A small plane flies along the newest flight line. A redraw (zoom, pan)
+  // replaces the map, so each frame finds the line and the plane again.
+  const PLANE = "M9,0 L3,-1.2 L-2,-7 L-4,-7 L-1,-1.2 L-6,-1.2 L-8,-3.5 L-9,-3.5 L-8,0 L-9,3.5 L-8,3.5 L-6,1.2 L-1,1.2 L-4,7 L-2,7 L3,1.2 Z";
+  const FLIGHT_MS = 1600;
+  let flightFrame = null;
+  function flyPlane() {
+    const anim = game.flyAnim;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      game.flyAnim = null;
+      return;
+    }
+    if (flightFrame) return; // already flying
+    const tick = (now) => {
+      if (!game || game.flyAnim !== anim || $("cityScreen").hidden) {
+        flightFrame = null;
+        svgEl.querySelector(".plane")?.remove();
+        return;
+      }
+      anim.start ??= now;
+      const t = Math.min(1, (now - anim.start) / FLIGHT_MS);
+      const line = svgEl.querySelector(".last-flight");
+      let plane = svgEl.querySelector(".plane");
+      if (line) {
+        if (!plane) {
+          plane = document.createElementNS("http://www.w3.org/2000/svg", "path");
+          plane.setAttribute("class", "plane");
+          plane.setAttribute("d", PLANE);
+          svgEl.appendChild(plane);
+        }
+        const len = line.getTotalLength();
+        const ease = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+        const at = ease * len;
+        const p = line.getPointAtLength(Math.min(at, len - 0.5));
+        const q = line.getPointAtLength(Math.min(at + 0.5, len));
+        const angle = (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI;
+        plane.setAttribute("transform", `translate(${p.x},${p.y}) rotate(${angle}) scale(1.4)`);
+      }
+      if (t < 1) flightFrame = requestAnimationFrame(tick);
+      else {
+        flightFrame = null;
+        game.flyAnim = null;
+        plane?.remove();
+      }
+    };
+    flightFrame = requestAnimationFrame(tick);
   }
 
   // Center a map smaller than the frame, and stop a drag at the map edge.
@@ -1002,6 +1146,117 @@
     zoomToCountries(game.choices);
   }
 
+  // --- Detective files: rank badge, sticker passport, and thief cards
+  let filesPlayer = null;
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+
+  function showFiles() {
+    if (!playerById(filesPlayer)) filesPlayer = players.playing[0] || players.list[0]?.id || null;
+    renderFiles();
+    show("filesScreen");
+  }
+
+  function renderFiles() {
+    const tabs = $("fileTabs");
+    tabs.innerHTML = "";
+    for (const p of players.list) {
+      const b = el("button", "file-tab" + (p.id === filesPlayer ? " on" : ""), `${p.avatar} ${p.name}`);
+      b.type = "button";
+      b.setAttribute("role", "tab");
+      b.setAttribute("aria-selected", p.id === filesPlayer ? "true" : "false");
+      b.addEventListener("click", () => {
+        filesPlayer = p.id;
+        renderFiles();
+      });
+      tabs.appendChild(b);
+    }
+    const p = playerById(filesPlayer);
+    $("filesEmpty").hidden = !!p;
+    $("fileBody").hidden = !p;
+    if (!p) return;
+
+    // The rank badge
+    const cases = solvedBy(p);
+    const rank = rankFor(cases.length);
+    const next = nextRank(cases.length);
+    const card = $("rankCard");
+    card.innerHTML = "";
+    card.append(
+      el("div", "rank-badge", rank.badge),
+      el("div", "rank-name", `${rank.name} ${p.name}`),
+      el(
+        "div",
+        "rank-progress",
+        `${cases.length} ${cases.length === 1 ? "case" : "cases"} solved.` +
+          (next ? ` ${next.at - cases.length} more to become ${next.name}.` : " The top rank!"),
+      ),
+    );
+
+    // The sticker passport
+    const passport = readJSON(passportKey(p.id), {});
+    const stamped = Object.keys(passport).filter((k) => byCode[k]);
+    $("passportCount").textContent = `${stamped.length} of ${COUNTRIES.length} countries stamped.`;
+    const world = d3.geoEqualEarth().fitExtent(EXTENT, { type: "Sphere" });
+    drawMap($("passportMap"), world, { stamped });
+    const stickers = $("stickers");
+    stickers.innerHTML = "";
+    const sticker = (icon, name, detail, earned) => {
+      const d = el("div", "sticker" + (earned ? " earned" : ""));
+      d.append(el("div", "sticker-icon", icon), el("div", "sticker-name", name), el("div", "sticker-detail", detail));
+      d.title = earned ? `${name}: earned!` : `${name}: not yet`;
+      return d;
+    };
+    for (const [ct, icon] of Object.entries(CONTINENT_STICKERS)) {
+      const all = COUNTRIES.filter((c) => c.continent === ct);
+      const have = all.filter((c) => passport[c.code]).length;
+      stickers.appendChild(sticker(icon, E.CONTINENT_NAMES[ct], `${have} of ${all.length}`, have === all.length));
+    }
+    for (const m of COUNT_STICKERS)
+      stickers.appendChild(sticker(m.icon, m.name, `${m.at} countries`, stamped.length >= m.at));
+
+    // Thief cards
+    const caught = new Map();
+    for (const e of cases) caught.set(e.thief, (caught.get(e.thief) || 0) + 1);
+    $("cardCount").textContent = `${[...caught.keys()].filter((id) => suspectById[id]).length} of ${E.SUSPECTS.length} thieves caught.`;
+    // One row of cards for each gang; a caught card is wider.
+    const cards = $("thiefCards");
+    cards.innerHTML = "";
+    for (const g of E.GANGS) {
+      const have = g.members.filter((x) => caught.has(x.id)).length;
+      cards.appendChild(el("div", "gang-head", `${g.name[0].toUpperCase() + g.name.slice(1)}: ${have} of ${g.members.length}`));
+      const row = el("div", "card-row");
+      for (const sus of g.members) {
+        const n = caught.get(sus.id) || 0;
+        const c = el("div", "thief-card" + (n ? " caught" : ""));
+        if (n) {
+          c.append(
+            el("div", "card-face", sus.emoji),
+            el("div", "card-name", sus.name),
+            el("div", "card-traits", E.lineupText(sus)),
+            el("div", "card-snack", `Favorite snack: ${sus.snack}.`),
+            el("div", "card-caught", `Caught ${n === 1 ? "once" : `${n} times`}`),
+          );
+        } else {
+          c.append(el("div", "card-face", "❓"), el("div", "card-name", "Not caught yet"));
+        }
+        row.appendChild(c);
+      }
+      cards.appendChild(row);
+    }
+  }
+
+  $("filesBtn").addEventListener("click", showFiles);
+  $("filesBackBtn").addEventListener("click", () => {
+    renderSetup();
+    show("setupScreen");
+    if (location.hash === "#files") history.replaceState(null, "", location.pathname);
+  });
+
   // --- Start
   $("dateLine").textContent = new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -1010,4 +1265,9 @@
     day: "numeric",
   });
   renderSetup();
+  // The quiz links here with #files.
+  if (location.hash === "#files") showFiles();
+  window.addEventListener("hashchange", () => {
+    if (location.hash === "#files" && !game) showFiles();
+  });
 })();

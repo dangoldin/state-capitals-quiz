@@ -73,6 +73,30 @@
         <button type="button" class="action next open-case" id="openCaseBtn">
           Open a new case
         </button>
+        <button type="button" class="action dunno files-btn" id="filesBtn">
+          🗂️ Detective files: badges, passports, and thief cards
+        </button>
+      </section>
+
+      <!-- Detective files: rank badge, sticker passport, thief cards -->
+      <section class="screen" id="filesScreen" hidden>
+        <h2 class="section-title">Detective Files</h2>
+        <div class="file-tabs" id="fileTabs" role="tablist"></div>
+        <p class="lede" id="filesEmpty" hidden>Add a detective on the Detective Desk first.</p>
+        <div id="fileBody">
+          <div class="rank-card" id="rankCard"></div>
+          <h3 class="clue-head">Sticker passport</h3>
+          <p class="desk-hint" id="passportCount"></p>
+          <figure class="map-figure chase-map">
+            <svg id="passportMap" viewBox="0 0 480 300" role="img" aria-label="Map of the stamped countries"></svg>
+            <figcaption>Stamped countries are blue. A country gets a stamp on the chase trail, or for a right answer in the quiz.</figcaption>
+          </figure>
+          <div class="stickers" id="stickers"></div>
+          <h3 class="clue-head">Thief cards</h3>
+          <p class="desk-hint" id="cardCount"></p>
+          <div class="thief-cards" id="thiefCards"></div>
+        </div>
+        <button type="button" class="action next" id="filesBackBtn">Back to the Detective Desk</button>
       </section>
 
       <!-- The case file -->
@@ -91,6 +115,7 @@
       <!-- A city on the trail -->
       <section class="screen" id="cityScreen" hidden>
         <p class="arrival" id="arrivalNote" aria-live="polite" hidden></p>
+        <p class="taunt" id="tauntNote" hidden></p>
         <div class="trip-bar">
           <span id="dayText"></span>
           <span id="stopText"></span>
@@ -139,6 +164,7 @@
           <div class="case-stamp" id="endStamp"></div>
           <p class="case-headline" id="endHeadline"></p>
           <p class="case-text" id="endText"></p>
+          <p class="case-text promo" id="endPromo" hidden></p>
         </div>
         <div class="learned" id="learned" hidden>
           <h3 class="clue-head">What we learned on the trail</h3>

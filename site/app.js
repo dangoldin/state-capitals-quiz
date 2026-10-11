@@ -234,6 +234,7 @@
   // shows the history. The session score (team or each player) resets at Start.
   let session = { team: 0, byPlayer: {}, run: {} };
   let lastAward = null;
+  let lastStamp = null; // a country that just got its first passport stamp
 
   // The Monday of this week, as YYYY-MM-DD in local time.
   function weekStart(date = new Date()) {
@@ -391,13 +392,13 @@
   // New game: delete every player and all saved progress on this device.
   async function newGame() {
     const ok = await askConfirm(
-      "Start a new game? This deletes every player and all progress on this device.",
+      "Start a new game? This deletes every player, all progress, passports, and solved cases on this device.",
       "Delete all",
     );
     if (!ok) return;
     try {
       for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("geo-") || key.startsWith("capitals-"))
+        if (key.startsWith("geo-") || key.startsWith("capitals-") || key.startsWith("chase-"))
           localStorage.removeItem(key);
       }
     } catch {}
@@ -1020,6 +1021,13 @@
         : ` +${lastAward.points}`;
       feedbackEl.appendChild(pts);
     }
+    if (lastStamp) {
+      const stamp = document.createElement("div");
+      stamp.className = "stamp-note";
+      const c = COUNTRIES.find((x) => x.code === lastStamp);
+      stamp.textContent = `🛂 New passport stamp: ${c.name}!`;
+      feedbackEl.appendChild(stamp);
+    }
     if (current.note) {
       const note = document.createElement("div");
       note.className = "note";
@@ -1036,8 +1044,22 @@
     showNextButton();
   }
 
+  // The sticker passport (shared with the chase page): the first correct
+  // answer about a country stamps it for the player whose turn it is.
+  const passportKey = (playerId) => "geo-passport-v1:" + playerId;
+  function stampPassport(code) {
+    const p = turnPlayer();
+    if (!p) return false;
+    const passport = readJSON(passportKey(p.id), {});
+    if (passport[code]) return false;
+    passport[code] = new Date().toISOString().slice(0, 10);
+    writeJSON(passportKey(p.id), passport);
+    return true;
+  }
+
   function record(correct) {
     lastAward = awardPoints(correct);
+    lastStamp = correct && current.map?.kind === "world" && stampPassport(current.map.id) ? current.map.id : null;
     const p = entryFor(current);
     p.seen++;
     if (correct) {

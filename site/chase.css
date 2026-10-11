@@ -480,3 +480,184 @@
   font-style: italic;
   color: var(--muted);
 }
+
+/* Rewards: taunts, the plane, promotions, and the detective files */
+.taunt {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: #fffdf5;
+  border: 1px dashed var(--ink-soft);
+  font-style: italic;
+  transform: rotate(-0.6deg);
+}
+.taunt[hidden],
+.promo[hidden] {
+  display: none;
+}
+.plane {
+  fill: var(--navy);
+  stroke: var(--paper);
+  stroke-width: 0.8;
+}
+.promo {
+  font-weight: 700;
+  color: var(--navy);
+}
+.map-stamped {
+  fill: #9fb6d1;
+  stroke: var(--navy);
+  stroke-width: 0.5;
+}
+.files-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+.file-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.file-tab {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-family: var(--serif-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.file-tab.on {
+  color: var(--ink);
+  border-color: var(--ink);
+  box-shadow: inset 0 -3px 0 var(--navy);
+}
+#fileBody[hidden],
+#filesEmpty[hidden] {
+  display: none;
+}
+.rank-card {
+  text-align: center;
+  padding: 16px;
+  margin-bottom: 18px;
+  background: var(--card);
+  border: 1px solid var(--rule-strong);
+}
+.rank-badge {
+  font-size: 52px;
+  line-height: 1.1;
+}
+.rank-name {
+  font-family: var(--serif-display);
+  font-size: 24px;
+  font-weight: 700;
+}
+.rank-progress {
+  color: var(--muted);
+  font-style: italic;
+}
+.stickers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.sticker {
+  text-align: center;
+  padding: 8px 4px;
+  border: 1px dashed var(--rule-strong);
+  color: var(--muted);
+}
+.sticker .sticker-icon {
+  font-size: 30px;
+  filter: grayscale(1);
+  opacity: 0.35;
+}
+.sticker.earned {
+  border: 2px solid var(--navy);
+  background: #fff;
+  color: var(--ink);
+  transform: rotate(-2deg);
+}
+.sticker.earned .sticker-icon {
+  filter: none;
+  opacity: 1;
+}
+.sticker-name {
+  font-family: var(--serif-display);
+  font-size: 14px;
+  font-weight: 700;
+}
+.sticker-detail {
+  font-size: 12px;
+}
+.thief-cards {
+  margin-bottom: 20px;
+}
+.gang-head {
+  margin: 12px 0 6px;
+  font-family: var(--serif-display);
+  font-weight: 700;
+  font-size: 15px;
+}
+.card-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.thief-card.caught {
+  grid-column: span 3;
+}
+@media (min-width: 560px) {
+  .card-row {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .thief-card.caught {
+    grid-column: span 2;
+  }
+}
+.thief-card {
+  padding: 6px;
+  text-align: center;
+  border: 1px dashed var(--rule-strong);
+  color: var(--muted);
+  font-size: 13px;
+}
+.thief-card.caught {
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--rule-strong);
+}
+.card-face {
+  font-size: 40px;
+  line-height: 1.2;
+}
+.thief-card:not(.caught) .card-face {
+  font-size: 26px;
+  opacity: 0.4;
+}
+.thief-card:not(.caught) .card-name {
+  font-size: 12px;
+  font-weight: 400;
+}
+.card-name {
+  font-family: var(--serif-display);
+  font-size: 16px;
+  font-weight: 700;
+}
+.card-gang {
+  font-style: italic;
+  margin-bottom: 4px;
+}
+.card-traits,
+.card-snack {
+  margin-top: 4px;
+}
+.card-caught {
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--good);
+}
