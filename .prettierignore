@@ -1,0 +1,14 @@
+# Generated files (see CLAUDE.md)
+site/vendor/
+site/map/
+site/culture.js
+site/facts.js
+site/flags/
+
+# data.js is a hand-aligned table: one country per block, several fields per line.
+site/data.js
+
+.cloudflare/
+.wrangler/
+.omc/
+package-lock.json

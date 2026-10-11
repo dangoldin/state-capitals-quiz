@@ -159,11 +159,11 @@ Facts to check again:
 
 ## Facts to check again
 
-| Fact | Why | When to check |
-|---|---|---|
-| Capital of Indonesia | The Nusantara decree is expected by August 2028 | Every 6 months |
-| Currency of Iran | A plan to remove four zeros from the rial | Every 6 months |
-| Currency of Burkina Faso, Mali, Niger | A plan for a new Sahel currency | Every 6 months |
-| Currency of Zimbabwe | A plan to use only the ZiG by 2030 | Every year |
-| New euro countries | Countries join the euro on 1 January | Every January |
-| Flag of North Korea | Reported change of proportions, March 2026 | Next update |
+| Fact                                  | Why                                             | When to check  |
+| ------------------------------------- | ----------------------------------------------- | -------------- |
+| Capital of Indonesia                  | The Nusantara decree is expected by August 2028 | Every 6 months |
+| Currency of Iran                      | A plan to remove four zeros from the rial       | Every 6 months |
+| Currency of Burkina Faso, Mali, Niger | A plan for a new Sahel currency                 | Every 6 months |
+| Currency of Zimbabwe                  | A plan to use only the ZiG by 2030              | Every year     |
+| New euro countries                    | Countries join the euro on 1 January            | Every January  |
+| Flag of North Korea                   | Reported change of proportions, March 2026      | Next update    |

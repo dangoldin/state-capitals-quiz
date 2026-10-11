@@ -25,9 +25,30 @@
   const LEVEL_KEY = "chase-level-v1";
   // The same animals as AVATARS in app.js.
   const AVATARS = [
-    "🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁",
-    "🐶", "🐱", "🐰", "🐻", "🐷", "🐵", "🦄", "🐢",
-    "🐬", "🦖", "🐧", "🦒", "🐝", "🦋", "🐳", "🦜",
+    "🦊",
+    "🐼",
+    "🐯",
+    "🐸",
+    "🐙",
+    "🦉",
+    "🐨",
+    "🦁",
+    "🐶",
+    "🐱",
+    "🐰",
+    "🐻",
+    "🐷",
+    "🐵",
+    "🦄",
+    "🐢",
+    "🐬",
+    "🦖",
+    "🐧",
+    "🦒",
+    "🐝",
+    "🦋",
+    "🐳",
+    "🦜",
   ];
   const SPARE_DAYS = 3; // days for wrong guesses, on top of one per flight
   const CASE_NO_KEY = "chase-next-case-v1";
@@ -100,7 +121,8 @@
   const savePlayers = () => writeJSON(PLAYERS_KEY, players);
   const playerById = (id) => players.list.find((p) => p.id === id);
   // The solved cases a player was on. Old cases saved only the names.
-  const onCase = (p, entry) => (entry.detectiveIds ? entry.detectiveIds.includes(p.id) : (entry.detectives || []).includes(p.name));
+  const onCase = (p, entry) =>
+    entry.detectiveIds ? entry.detectiveIds.includes(p.id) : (entry.detectives || []).includes(p.name);
   const solvedBy = (p) => readJSON(CASEBOOK_KEY, []).filter((e) => e.solved && onCase(p, e));
   const rankOf = (p) => rankFor(solvedBy(p).length);
   // Stamp a country in each detective's passport. Returns true when it is a
@@ -121,9 +143,7 @@
 
   // --- Text helpers
   const listNames = (names) =>
-    names.length <= 1
-      ? names.join("")
-      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+    names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   const cityOf = (code) => byCode[code].capital;
   const placeOf = (code) => `${byCode[code].capital}, ${byCode[code].name}`;
   const flagSrc = (code) => `flags/${code.toLowerCase()}.svg`;
@@ -134,7 +154,7 @@
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/\bsaint\b/g, "st")
-      .replace(/[.,'’ʻ`\-]/g, "")
+      .replace(/[.,'’ʻ`-]/g, "")
       .trim()
       .replace(/\s+/g, " ");
   }
@@ -249,7 +269,7 @@
       b.setAttribute("aria-checked", on ? "true" : "false");
     }
     $("levelNote").textContent = LEVEL_NOTES[level];
-    $("openCaseBtn").disabled = !players.playing.length;
+    /** @type {HTMLButtonElement} */ ($("openCaseBtn")).disabled = !players.playing.length;
     const solved = readJSON(CASEBOOK_KEY, []).filter((c) => c.solved).length;
     $("caseCount").textContent = solved ? `${solved} ${solved === 1 ? "case" : "cases"} solved` : "";
   }
@@ -260,7 +280,7 @@
     const p = playerById(id);
     if (!p) return;
     editing = { id, avatar: p.avatar };
-    $("editDetectiveName").value = p.name;
+    /** @type {HTMLInputElement} */ ($("editDetectiveName")).value = p.name;
     renderSetup();
     $("editDetectiveName").focus({ preventScroll: true });
   }
@@ -290,7 +310,7 @@
   $("editDetectiveForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const p = editing && playerById(editing.id);
-    const name = $("editDetectiveName").value.trim();
+    const name = /** @type {HTMLInputElement} */ ($("editDetectiveName")).value.trim();
     if (!p || !name) return;
     p.name = name;
     p.avatar = editing.avatar;
@@ -305,9 +325,9 @@
 
   $("addDetectiveForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const name = $("newDetectiveName").value.trim();
+    const name = /** @type {HTMLInputElement} */ ($("newDetectiveName")).value.trim();
     if (!name) return;
-    $("newDetectiveName").value = "";
+    /** @type {HTMLInputElement} */ ($("newDetectiveName")).value = "";
     const used = new Set(players.list.map((p) => p.avatar));
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     players.list.push({ id, name, avatar: AVATARS.find((a) => !used.has(a)) || AVATARS[0], level: "type" });
@@ -351,7 +371,7 @@
     // Case numbers never repeat, also when a case is left unfinished.
     const caseNo = Math.max(readJSON(CASE_NO_KEY, 1), readJSON(CASEBOOK_KEY, []).length + 1);
     writeJSON(CASE_NO_KEY, caseNo + 1);
-    $("caseNo").textContent = caseNo;
+    $("caseNo").textContent = String(caseNo);
     game.caseNo = caseNo;
     $("caseHeadline").textContent = `Stolen: ${c.loot}!`;
     $("caseText").textContent =
@@ -376,7 +396,7 @@
     const here = s.from;
     $("dayText").textContent = `Day ${game.day} of ${game.days}`;
     $("stopText").textContent = `Flight ${game.step + 1} of ${game.c.steps.length}`;
-    $("cityFlag").src = flagSrc(here);
+    /** @type {HTMLImageElement} */ ($("cityFlag")).src = flagSrc(here);
     $("cityName").textContent = cityOf(here);
     $("cityCountry").textContent = byCode[here].name;
 
@@ -518,7 +538,8 @@
         e.preventDefault();
         const code = countryFromText(input.value);
         if (!code) {
-          $("chaseFeedback").textContent = `We don't know a country called "${input.value.trim()}". Check the spelling.`;
+          $("chaseFeedback").textContent =
+            `We don't know a country called "${input.value.trim()}". Check the spelling.`;
           $("chaseFeedback").className = "feedback warn";
           return;
         }
@@ -538,7 +559,8 @@
     }
     // A place we already checked costs nothing.
     if ((game.wrongHere || []).includes(code)) {
-      $("chaseFeedback").textContent = `We already checked ${byCode[code].name}: the thief was not there. Try another country.`;
+      $("chaseFeedback").textContent =
+        `We already checked ${byCode[code].name}: the thief was not there. Try another country.`;
       $("chaseFeedback").className = "feedback warn";
       return;
     }
@@ -568,9 +590,7 @@
         (facts.length ? ` Did you know? ${facts.join(" ")}` : "") +
         (stamped ? ` 🛂 New passport stamp: ${byCode[code].name}!` : "");
       game.taunt =
-        game.step < game.c.steps.length && Math.random() < 0.4
-          ? pickOne(TAUNTS)(detective().name, game.c.loot)
-          : null;
+        game.step < game.c.steps.length && Math.random() < 0.4 ? pickOne(TAUNTS)(detective().name, game.c.loot) : null;
       if (game.step >= game.c.steps.length) return showLineup(found);
       return showCity(found);
     }
@@ -582,7 +602,10 @@
     if (game.day > game.days) return endCase(false);
     game.taunt = null;
     const extra = game.extra[game.step];
-    const added = E.extraClue(s.to, [...s.clues, ...extra].map((cl) => cl.type));
+    const added = E.extraClue(
+      s.to,
+      [...s.clues, ...extra].map((cl) => cl.type),
+    );
     if (added) extra.push(added);
     showCity(
       `Dead end in ${placeOf(code)}: nobody there has seen the thief. ` +
@@ -732,10 +755,19 @@
   // Draw the map: countries, the flights so far, and the city markers.
   // `here` is the current city's country; `selected` is the country the
   // player tapped (Normal); `choices` are the countries a hint shades.
-  function drawMap(svg, projection, { highlight = [], current = null, route = [], selected = null, choices = [], stamped = [], cull = true }) {
+  function drawMap(
+    svg,
+    projection,
+    { highlight = [], current = null, route = [], selected = null, choices = [], stamped = [], cull = true },
+  ) {
     const path = d3.geoPath(projection);
     const center = projection.invert([MAP_W / 2, MAP_H / 2]);
-    const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) => projection.invert(p));
+    const corners = [
+      [0, 0],
+      [MAP_W, 0],
+      [0, MAP_H],
+      [MAP_W, MAP_H],
+    ].map((p) => projection.invert(p));
     let viewR = Infinity;
     if (center && corners.every((c) => c && Number.isFinite(c[0])))
       viewR = Math.max(...corners.map((c) => d3.geoDistance(c, center)));
@@ -768,7 +800,10 @@
       const f = shapeById.get(id);
       if (!f || path.area(f) >= 40) continue;
       const p = projection(capitalPoint(id));
-      if (p) parts.push(`<circle class="${id === selected ? "map-ring" : "map-choice-ring"}" cx="${p[0]}" cy="${p[1]}" r="10"/>`);
+      if (p)
+        parts.push(
+          `<circle class="${id === selected ? "map-ring" : "map-choice-ring"}" cx="${p[0]}" cy="${p[1]}" r="10"/>`,
+        );
     }
     // A stamped country too small to see gets a dot at its capital.
     for (const id of stamped) {
@@ -784,13 +819,18 @@
     }
     for (const code of route) {
       const p = projection(capitalPoint(code));
-      if (p) parts.push(`<circle class="${code === current ? "map-capital" : "map-stop"}" cx="${p[0]}" cy="${p[1]}" r="${code === current ? 4.5 : 3}"/>`);
+      if (p)
+        parts.push(
+          `<circle class="${code === current ? "map-capital" : "map-stop"}" cx="${p[0]}" cy="${p[1]}" r="${code === current ? 4.5 : 3}"/>`,
+        );
     }
     if (current) {
       const p = projection(capitalPoint(current));
       if (p) {
         const right = p[0] < MAP_W * 0.6;
-        parts.push(`<text class="map-label" x="${p[0] + (right ? 9 : -9)}" y="${p[1] + 4}" text-anchor="${right ? "start" : "end"}"></text>`);
+        parts.push(
+          `<text class="map-label" x="${p[0] + (right ? 9 : -9)}" y="${p[1] + 4}" text-anchor="${right ? "start" : "end"}"></text>`,
+        );
       }
     }
     // The selected country's name, at its capital.
@@ -798,7 +838,9 @@
       const p = projection(capitalPoint(selected));
       if (p) {
         const right = p[0] < MAP_W * 0.6;
-        parts.push(`<text class="map-label selected-label" x="${p[0] + (right ? 12 : -12)}" y="${p[1] - 8}" text-anchor="${right ? "start" : "end"}"></text>`);
+        parts.push(
+          `<text class="map-label selected-label" x="${p[0] + (right ? 12 : -12)}" y="${p[1] - 8}" text-anchor="${right ? "start" : "end"}"></text>`,
+        );
       }
     }
     svg.innerHTML = parts.join("");
@@ -815,7 +857,10 @@
   let trailView = { key: null };
   const MAX_ZOOM = 20;
   const PAD = 14;
-  const EXTENT = [[PAD, PAD], [MAP_W - PAD, MAP_H - PAD]];
+  const EXTENT = [
+    [PAD, PAD],
+    [MAP_W - PAD, MAP_H - PAD],
+  ];
 
   // The view around the city: enough of the world to find the next stop.
   function baseTrailProjection(here) {
@@ -858,7 +903,8 @@
 
   // A small plane flies along the newest flight line. A redraw (zoom, pan)
   // replaces the map, so each frame finds the line and the plane again.
-  const PLANE = "M9,0 L3,-1.2 L-2,-7 L-4,-7 L-1,-1.2 L-6,-1.2 L-8,-3.5 L-9,-3.5 L-8,0 L-9,3.5 L-8,3.5 L-6,1.2 L-1,1.2 L-4,7 L-2,7 L3,1.2 Z";
+  const PLANE =
+    "M9,0 L3,-1.2 L-2,-7 L-4,-7 L-1,-1.2 L-6,-1.2 L-8,-3.5 L-9,-3.5 L-8,0 L-9,3.5 L-8,3.5 L-6,1.2 L-1,1.2 L-4,7 L-2,7 L3,1.2 Z";
   const FLIGHT_MS = 1600;
   let flightFrame = null;
   function flyPlane() {
@@ -876,7 +922,7 @@
       }
       anim.start ??= now;
       const t = Math.min(1, (now - anim.start) / FLIGHT_MS);
-      const line = svgEl.querySelector(".last-flight");
+      const line = /** @type {SVGPathElement | null} */ (svgEl.querySelector(".last-flight"));
       let plane = svgEl.querySelector(".plane");
       if (line) {
         if (!plane) {
@@ -906,8 +952,7 @@
   // Center a map smaller than the frame, and stop a drag at the map edge.
   function keepInFrame(projection) {
     const [[x0, y0], [x1, y1]] = d3.geoPath(projection).bounds({ type: "Sphere" });
-    const shift = (lo, hi, size) =>
-      hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0;
+    const shift = (lo, hi, size) => (hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0);
     const dx = shift(x0, x1, MAP_W);
     const dy = shift(y0, y1, MAP_H);
     if (dx || dy) {
@@ -966,7 +1011,13 @@
     const projection = d3
       .geoEqualEarth()
       .rotate([-(Math.atan2(y, x) * 180) / Math.PI, 0])
-      .fitExtent([[pad, pad], [MAP_W - pad, MAP_H - pad]], { type: "FeatureCollection", features: circles });
+      .fitExtent(
+        [
+          [pad, pad],
+          [MAP_W - pad, MAP_H - pad],
+        ],
+        { type: "FeatureCollection", features: circles },
+      );
     drawMap($("endMap"), projection, { highlight: route, current: route[route.length - 1], route });
   }
 
@@ -1012,7 +1063,7 @@
     tapStart = null;
   });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
-    svgEl.addEventListener(type, (e) => {
+    svgEl.addEventListener(type, (/** @type {PointerEvent} */ e) => {
       pointers.delete(e.pointerId);
       if (type !== "pointerup") tapStart = null;
     });
@@ -1025,8 +1076,7 @@
     const [px, py] = trailProjection.translate();
     const ox = trailView.translate[0] - px;
     const oy = trailView.translate[1] - py;
-    const clamp = (d, lo, hi, size) =>
-      hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d));
+    const clamp = (d, lo, hi, size) => (hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d)));
     return [clamp(dx, x0 + ox, x1 + ox, MAP_W), clamp(dy, y0 + oy, y1 + oy, MAP_H)];
   }
 
@@ -1040,9 +1090,7 @@
     if (now - wheelGesture.at > 300)
       wheelGesture.mouse =
         e.deltaMode !== 0 ||
-        (e.deltaX === 0 &&
-          Math.abs(e.deltaY) >= 40 &&
-          (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
+        (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
     wheelGesture.at = now;
     return wheelGesture.mouse;
   }
@@ -1231,13 +1279,16 @@
     // Thief cards
     const caught = new Map();
     for (const e of cases) caught.set(e.thief, (caught.get(e.thief) || 0) + 1);
-    $("cardCount").textContent = `${[...caught.keys()].filter((id) => suspectById[id]).length} of ${E.SUSPECTS.length} thieves caught.`;
+    $("cardCount").textContent =
+      `${[...caught.keys()].filter((id) => suspectById[id]).length} of ${E.SUSPECTS.length} thieves caught.`;
     // One row of cards for each gang; a caught card is wider.
     const cards = $("thiefCards");
     cards.innerHTML = "";
     for (const g of E.GANGS) {
       const have = g.members.filter((x) => caught.has(x.id)).length;
-      cards.appendChild(el("div", "gang-head", `${g.name[0].toUpperCase() + g.name.slice(1)}: ${have} of ${g.members.length}`));
+      cards.appendChild(
+        el("div", "gang-head", `${g.name[0].toUpperCase() + g.name.slice(1)}: ${have} of ${g.members.length}`),
+      );
       const row = el("div", "card-row");
       for (const sus of g.members) {
         const n = caught.get(sus.id) || 0;
@@ -1284,7 +1335,11 @@
         li.append(
           img,
           el("span", "stamp-name", c.name),
-          el("span", "stamp-date", isNaN(date) ? "" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" })),
+          el(
+            "span",
+            "stamp-date",
+            isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          ),
         );
         ul.appendChild(li);
       }

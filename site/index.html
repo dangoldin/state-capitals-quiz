@@ -2,10 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f6f1e7" />
     <title>The World Register</title>
     <link rel="stylesheet" href="styles.css" />
@@ -18,9 +15,7 @@
             <span class="avatar" id="playerAvatar">👤</span>
             <span id="playerName">Players</span>
           </button>
-          <button class="reset-btn" id="resetBtn" title="Reset this deck">
-            Reset deck
-          </button>
+          <button class="reset-btn" id="resetBtn" title="Reset this deck">Reset deck</button>
         </div>
         <h1 class="masthead-title">The World Register</h1>
         <p class="masthead-motto">Of Capitals, Countries &amp; Flags</p>
@@ -28,9 +23,7 @@
           <span id="dateLine"></span>
           <span>Est. MMXXVI</span>
         </div>
-        <a class="edition-link" href="chase.html">
-          Also in this edition: <strong>The Great Atlas Chase</strong> →
-        </a>
+        <a class="edition-link" href="chase.html"> Also in this edition: <strong>The Great Atlas Chase</strong> → </a>
       </header>
       <h2 class="section-title" id="deckTitle">US States</h2>
 
@@ -59,21 +52,11 @@
       </div>
 
       <div class="stats">
-        <div
-          class="stat mastered"
-          data-cat="mastered"
-          role="button"
-          tabindex="0"
-        >
+        <div class="stat mastered" data-cat="mastered" role="button" tabindex="0">
           <div class="stat-num" id="masteredCount">0</div>
           <div class="stat-label">Mastered</div>
         </div>
-        <div
-          class="stat learning"
-          data-cat="learning"
-          role="button"
-          tabindex="0"
-        >
+        <div class="stat learning" data-cat="learning" role="button" tabindex="0">
           <div class="stat-num" id="learningCount">0</div>
           <div class="stat-label">Learning</div>
         </div>
@@ -106,12 +89,8 @@
           />
           <div class="choices" id="choices" hidden></div>
           <div class="buttons" id="buttonRow">
-            <button type="submit" class="action submit" id="submitBtn">
-              Check
-            </button>
-            <button type="button" class="action dunno" id="dunnoBtn">
-              I don't know
-            </button>
+            <button type="submit" class="action submit" id="submitBtn">Check</button>
+            <button type="button" class="action dunno" id="dunnoBtn">I don't know</button>
           </div>
         </form>
 
@@ -132,12 +111,7 @@
             <button type="button" id="mapZoomOut" aria-label="Zoom out">−</button>
             <button type="button" id="mapReset" aria-label="Reset the map view" title="Reset view">⟲</button>
           </div>
-          <svg
-            id="mapSvg"
-            viewBox="0 0 480 300"
-            role="img"
-            aria-label="Map"
-          ></svg>
+          <svg id="mapSvg" viewBox="0 0 480 300" role="img" aria-label="Map"></svg>
           <figcaption>
             <span id="mapCaption"></span>
             <span class="map-hint">Drag to move. Pinch, or use + and −, to zoom.</span>
@@ -148,48 +122,28 @@
       <div class="hint">Progress is saved on this device, for each player.</div>
     </div>
 
-    <div
-      class="modal-backdrop"
-      id="modalBackdrop"
-      role="dialog"
-      aria-modal="true"
-    >
+    <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
       <div class="modal" role="document">
         <div class="modal-header">
           <h2 class="modal-title" id="modalTitle">—</h2>
-          <button class="modal-close" id="modalClose" aria-label="Close">
-            ×
-          </button>
+          <button class="modal-close" id="modalClose" aria-label="Close">×</button>
         </div>
         <div class="modal-body" id="modalBody"></div>
       </div>
     </div>
 
-    <div
-      class="modal-backdrop"
-      id="playersBackdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="playersTitle"
-    >
+    <div class="modal-backdrop" id="playersBackdrop" role="dialog" aria-modal="true" aria-labelledby="playersTitle">
       <div class="modal" role="document">
         <div class="modal-header">
           <h2 class="modal-title" id="playersTitle">Who is playing?</h2>
-          <button class="modal-close" id="playersClose" aria-label="Close">
-            ×
-          </button>
+          <button class="modal-close" id="playersClose" aria-label="Close">×</button>
         </div>
         <div class="modal-body">
           <p class="players-hint" id="playersHint"></p>
           <div class="player-list" id="playerList"></div>
           <div class="score-setting">
             <span class="deck-label" id="scoreLabel">Keep score</span>
-            <div
-              class="segmented"
-              id="scoreMode"
-              role="radiogroup"
-              aria-labelledby="scoreLabel"
-            >
+            <div class="segmented" id="scoreMode" role="radiogroup" aria-labelledby="scoreLabel">
               <button type="button" role="radio" data-mode="off">Off</button>
               <button type="button" role="radio" data-mode="team">Team</button>
               <button type="button" role="radio" data-mode="each">Each player</button>
@@ -206,25 +160,16 @@
               autocapitalize="words"
               spellcheck="false"
             />
-            <div
-              class="avatar-picker"
-              id="avatarPicker"
-              role="radiogroup"
-              aria-label="Choose an animal"
-            ></div>
+            <div class="avatar-picker" id="avatarPicker" role="radiogroup" aria-label="Choose an animal"></div>
             <div class="add-player-buttons">
               <button type="submit" class="action dunno" id="addPlayerSubmit">Add player</button>
               <button type="button" class="action dunno" id="editCancel" hidden>Cancel</button>
             </div>
           </form>
           <div class="start-row">
-            <button type="button" class="action next" id="startBtn" disabled>
-              Start
-            </button>
+            <button type="button" class="action next" id="startBtn" disabled>Start</button>
             <a class="files-link" href="chase.html#files">🛂 Passports, badges, and thief cards →</a>
-            <button type="button" class="new-game-btn" id="newGameBtn" hidden>
-              New game — delete all players
-            </button>
+            <button type="button" class="new-game-btn" id="newGameBtn" hidden>New game — delete all players</button>
           </div>
         </div>
       </div>
@@ -240,12 +185,8 @@
       <div class="modal confirm" role="document">
         <p class="confirm-text" id="confirmText"></p>
         <div class="buttons">
-          <button type="button" class="action dunno" id="confirmCancel">
-            Cancel
-          </button>
-          <button type="button" class="action danger" id="confirmOk">
-            OK
-          </button>
+          <button type="button" class="action dunno" id="confirmCancel">Cancel</button>
+          <button type="button" class="action danger" id="confirmOk">OK</button>
         </div>
       </div>
     </div>

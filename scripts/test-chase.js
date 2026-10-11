@@ -24,7 +24,9 @@ for (const level of E.LEVELS) {
   const types = {};
   const routes = {};
   const gangs = {};
-  let together = 0, stepsTotal = 0, lucky = 0;
+  let together = 0,
+    stepsTotal = 0,
+    lucky = 0;
   for (let i = 0; i < N; i++) {
     const seed = i * 7919 + 13;
     const c = E.makeCase({ seed, level });
@@ -46,12 +48,15 @@ for (const level of E.LEVELS) {
       seen.add(s.to);
       from = s.to;
       const sol = E.solve(s.clues);
-      if (sol.length !== 1 || sol[0] !== s.to) fail(`${id} step ${j}: clues fit [${sol}], expected ${s.to}: ${s.clues.map((x) => x.text).join(" | ")}`);
+      if (sol.length !== 1 || sol[0] !== s.to)
+        fail(`${id} step ${j}: clues fit [${sol}], expected ${s.to}: ${s.clues.map((x) => x.text).join(" | ")}`);
       if (s.clues.length < 2) fail(`${id} step ${j}: fewer than 2 clues`);
       for (const cl of s.clues) {
         types[cl.type] = (types[cl.type] || 0) + 1;
-        if (!cl.text || /undefined|null|\bShe\b|\bthe thief the thief\b/i.test(cl.text)) fail(`${id} step ${j}: bad clue text "${cl.text}"`);
-        if (cl.type === "fact" && E.solve([cl]).join() !== s.to) fail(`${id} step ${j}: fact clue fits more than ${s.to}`);
+        if (!cl.text || /undefined|null|\bShe\b|\bthe thief the thief\b/i.test(cl.text))
+          fail(`${id} step ${j}: bad clue text "${cl.text}"`);
+        if (cl.type === "fact" && E.solve([cl]).join() !== s.to)
+          fail(`${id} step ${j}: fact clue fits more than ${s.to}`);
         if (cl.type === "flag" && !cl.flag) fail(`${id} step ${j}: flag clue without a flag`);
       }
       // Clues that only work together (no single clue is enough).
@@ -68,27 +73,47 @@ for (const level of E.LEVELS) {
       // Fairness rules (see CLAUDE.md).
       const country = ctx.C.find((x) => x.code === s.to);
       for (const cl of s.clues) {
-        if (cl.type === "coast" && ["AZ", "KZ", "TM"].includes(s.to)) fail(`${id} step ${j}: coast clue for the Caspian country ${s.to}`);
-        if (cl.type === "neighborCount" && ["FR", "ES", "MA", "BW", "ZM"].includes(s.to)) fail(`${id} step ${j}: neighbor count for ${s.to}`);
-        if (cl.type === "money" && /CFA|money in\b/.test(cl.text)) fail(`${id} step ${j}: hard money text "${cl.text}"`);
+        if (cl.type === "coast" && ["AZ", "KZ", "TM"].includes(s.to))
+          fail(`${id} step ${j}: coast clue for the Caspian country ${s.to}`);
+        if (cl.type === "neighborCount" && ["FR", "ES", "MA", "BW", "ZM"].includes(s.to))
+          fail(`${id} step ${j}: neighbor count for ${s.to}`);
+        if (cl.type === "money" && /CFA|money in\b/.test(cl.text))
+          fail(`${id} step ${j}: hard money text "${cl.text}"`);
         if (cl.type === "letter") {
-          const letters = new Set([country.name, ...(country.aka || [])].map((n) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "")[0].toUpperCase()));
+          const letters = new Set(
+            [country.name, ...(country.aka || [])].map((n) =>
+              n
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")[0]
+                .toUpperCase(),
+            ),
+          );
           if (letters.size > 1) fail(`${id} step ${j}: letter clue for ${s.to}, which has names with other letters`);
         }
       }
       if (level === "easy") {
         const o = s.options || [];
         if (o.length !== 4 || new Set(o).size !== 4 || !o.includes(s.to)) fail(`${id} step ${j}: bad options ${o}`);
-        for (const k of o) if (k !== s.to && s.clues.every((cl) => cl.fits(k))) fail(`${id} step ${j}: option ${k} also fits`);
+        for (const k of o)
+          if (k !== s.to && s.clues.every((cl) => cl.fits(k))) fail(`${id} step ${j}: option ${k} also fits`);
       }
     }
     // The revealed traits name exactly the thief.
     const traits = c.steps.filter((s) => s.trait && s.trait.group !== "snack").map((s) => s.trait);
     if (traits.length !== 2) fail(`${id}: ${traits.length} traits, expected 2`);
     const who = E.suspectsMatching(c.gang, traits);
-    if (who.length !== 1 || who[0].id !== c.thief) fail(`${id}: traits name [${who.map((w) => w.id)}], thief ${c.thief}`);
+    if (who.length !== 1 || who[0].id !== c.thief)
+      fail(`${id}: traits name [${who.map((w) => w.id)}], thief ${c.thief}`);
   }
-  stats[level] = { cases: N, steps: stepsTotal, "clues that only work together": `${Math.round((together / stepsTotal) * 100)}%`, "lucky flights": lucky, routes, gangs, clueTypes: types };
+  stats[level] = {
+    cases: N,
+    steps: stepsTotal,
+    "clues that only work together": `${Math.round((together / stepsTotal) * 100)}%`,
+    "lucky flights": lucky,
+    routes,
+    gangs,
+    clueTypes: types,
+  };
 }
 
 // In each gang, any two traits from different groups name exactly one suspect.
@@ -99,16 +124,22 @@ for (const s of E.SUSPECTS) {
 }
 for (const g of E.GANGS) {
   if (g.members.length !== 6) fail(`gang ${g.id} has ${g.members.length} suspects`);
-  for (const a of g.groups) for (const b of g.groups) {
-    if (a.key >= b.key) continue;
-    for (const s of g.members) {
-      const m = E.suspectsMatching(g.id, [{ group: a.key, value: s.traits[a.key] }, { group: b.key, value: s.traits[b.key] }]);
-      if (m.length !== 1) fail(`gang ${g.id}: traits ${a.key}+${b.key} of ${s.id} match ${m.length} suspects`);
+  for (const a of g.groups)
+    for (const b of g.groups) {
+      if (a.key >= b.key) continue;
+      for (const s of g.members) {
+        const m = E.suspectsMatching(g.id, [
+          { group: a.key, value: s.traits[a.key] },
+          { group: b.key, value: s.traits[b.key] },
+        ]);
+        if (m.length !== 1) fail(`gang ${g.id}: traits ${a.key}+${b.key} of ${s.id} match ${m.length} suspects`);
+      }
     }
-  }
   // No group alone names a suspect.
-  for (const grp of g.groups) for (const s of g.members)
-    if (E.suspectsMatching(g.id, [{ group: grp.key, value: s.traits[grp.key] }]).length !== 2) fail(`gang ${g.id}: ${grp.key} of ${s.id} is not shared by exactly 2`);
+  for (const grp of g.groups)
+    for (const s of g.members)
+      if (E.suspectsMatching(g.id, [{ group: grp.key, value: s.traits[grp.key] }]).length !== 2)
+        fail(`gang ${g.id}: ${grp.key} of ${s.id} is not shared by exactly 2`);
 }
 
 console.log(JSON.stringify(stats, null, 1));

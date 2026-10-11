@@ -2,10 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f6f1e7" />
     <title>The Great Atlas Chase</title>
     <link rel="stylesheet" href="styles.css" />
@@ -30,8 +27,7 @@
       <section class="screen" id="setupScreen">
         <h2 class="section-title">The Detective Desk</h2>
         <p class="lede">
-          A thief is loose somewhere in the world! Choose the detectives and
-          the level, then open a new case.
+          A thief is loose somewhere in the world! Choose the detectives and the level, then open a new case.
         </p>
         <div class="desk-label">Detectives</div>
         <p class="desk-hint" id="detectiveHint"></p>
@@ -70,9 +66,7 @@
           <button type="button" role="radio" data-level="hard">Hard</button>
         </div>
         <p class="desk-hint" id="levelNote"></p>
-        <button type="button" class="action next open-case" id="openCaseBtn">
-          Open a new case
-        </button>
+        <button type="button" class="action next open-case" id="openCaseBtn">Open a new case</button>
         <button type="button" class="action dunno files-btn" id="filesBtn">
           🗂️ Detective files: badges, passports, and thief cards
         </button>
@@ -89,7 +83,9 @@
           <p class="desk-hint" id="passportCount"></p>
           <figure class="map-figure chase-map">
             <svg id="passportMap" viewBox="0 0 480 300" role="img" aria-label="Map of the stamped countries"></svg>
-            <figcaption>Stamped countries are blue. A country gets a stamp on the chase trail, or for a right answer in the quiz.</figcaption>
+            <figcaption>
+              Stamped countries are blue. A country gets a stamp on the chase trail, or for a right answer in the quiz.
+            </figcaption>
           </figure>
           <details class="stamp-details" id="stampDetails">
             <summary id="stampSummary"></summary>
@@ -110,9 +106,7 @@
           <p class="case-headline" id="caseHeadline"></p>
           <p class="case-text" id="caseText"></p>
           <p class="case-text case-team" id="caseTeam"></p>
-          <button type="button" class="action next" id="acceptBtn">
-            Accept the case
-          </button>
+          <button type="button" class="action next" id="acceptBtn">Accept the case</button>
         </div>
       </section>
 
@@ -178,9 +172,7 @@
           <svg id="endMap" viewBox="0 0 480 300" role="img" aria-label="Map of the route"></svg>
           <figcaption>The thief's route.</figcaption>
         </figure>
-        <button type="button" class="action next" id="newCaseBtn">
-          Back to the Detective Desk
-        </button>
+        <button type="button" class="action next" id="newCaseBtn">Back to the Detective Desk</button>
       </section>
 
       <div class="hint">Cases are saved on this device.</div>

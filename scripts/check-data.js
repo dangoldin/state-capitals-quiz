@@ -11,8 +11,7 @@ const root = path.join(import.meta.dirname, "..", "site");
 const ctx = {};
 vm.createContext(ctx);
 vm.runInContext(
-  fs.readFileSync(path.join(root, "data.js"), "utf8") +
-    "\nthis.COUNTRIES = COUNTRIES; this.US_STATES = US_STATES;",
+  fs.readFileSync(path.join(root, "data.js"), "utf8") + "\nthis.COUNTRIES = COUNTRIES; this.US_STATES = US_STATES;",
   ctx,
 );
 const { COUNTRIES, US_STATES } = ctx;
@@ -29,7 +28,7 @@ const normalize = (s) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\bsaint\b/g, "st")
-    .replace(/[.,'’ʻ`\-]/g, "")
+    .replace(/[.,'’ʻ`-]/g, "")
     .trim()
     .replace(/\s+/g, " ");
 
@@ -66,7 +65,8 @@ for (const d of dupes(COUNTRIES.map((c) => c.num))) fail(`duplicate numeric code
 //    against capital and capitalAlso, so those need 3 or more letters.
 for (const c of COUNTRIES) {
   for (const t of [c.capital, ...(c.capitalAlso || [])]) {
-    if (typeof t === "string" && normalize(t).length < 3) fail(`${c.code}: capital "${t}" is too short for typo matching`);
+    if (typeof t === "string" && normalize(t).length < 3)
+      fail(`${c.code}: capital "${t}" is too short for typo matching`);
   }
 }
 function checkTypedAnswers(label, answersOf) {
@@ -125,7 +125,13 @@ if (US_STATES.length !== 50) fail(`expected 50 US states, found ${US_STATES.leng
 for (const d of dupes(US_STATES.map(([s]) => s))) fail(`duplicate state ${d}`);
 for (const row of US_STATES) {
   const [state, cap, lat, lng] = row;
-  if (row.length !== 4 || !state || typeof cap !== "string" || !cap || !(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180))
+  if (
+    row.length !== 4 ||
+    !state ||
+    typeof cap !== "string" ||
+    !cap ||
+    !(lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
+  )
     fail(`state row ${JSON.stringify(row)}: needs [name, capital, lat, lng]`);
 }
 
@@ -149,9 +155,7 @@ const kmFromShape = (shape, point) => {
   return min * 6371;
 };
 const world = mapCtx.window.WORLD_MAP;
-const countryShapes = new Map(
-  feature(world, world.objects.countries).features.map((f) => [f.properties.iso2, f]),
-);
+const countryShapes = new Map(feature(world, world.objects.countries).features.map((f) => [f.properties.iso2, f]));
 for (const c of COUNTRIES) {
   const shape = countryShapes.get(c.code);
   if (!shape) {
@@ -162,9 +166,7 @@ for (const c of COUNTRIES) {
   if (km > MAX_KM) fail(`${c.code}: capital ${c.capital} is ${km.toFixed(1)} km from the country on the map`);
 }
 const us = mapCtx.window.US_MAP;
-const stateShapes = new Map(
-  feature(us, us.objects.states).features.map((f) => [f.properties.name, f]),
-);
+const stateShapes = new Map(feature(us, us.objects.states).features.map((f) => [f.properties.name, f]));
 for (const [state, cap, lat, lng] of US_STATES) {
   const shape = stateShapes.get(state);
   if (!shape) {
@@ -185,7 +187,8 @@ for (const c of COUNTRIES) {
     continue;
   }
   if (!(f.area > 0)) fail(`${c.code}: area must be a positive number`);
-  if (!(Number.isInteger(f.population) && f.population > 0)) fail(`${c.code}: population must be a positive whole number`);
+  if (!(Number.isInteger(f.population) && f.population > 0))
+    fail(`${c.code}: population must be a positive whole number`);
   if (typeof f.landlocked !== "boolean") fail(`${c.code}: landlocked must be true or false`);
   if (!Array.isArray(f.neighbors)) fail(`${c.code}: neighbors must be a list`);
   for (const n of f.neighbors || []) {
@@ -194,7 +197,8 @@ for (const c of COUNTRIES) {
   }
   if (f.landlocked && !(f.neighbors || []).length) fail(`${c.code}: a landlocked country must have neighbors`);
 }
-for (const k of Object.keys(FACTS)) if (!COUNTRIES.some((c) => c.code === k)) fail(`facts.js: ${k} is not a country in data.js`);
+for (const k of Object.keys(FACTS))
+  if (!COUNTRIES.some((c) => c.code === k)) fail(`facts.js: ${k} is not a country in data.js`);
 
 // 9. History and culture facts (culture.js): a source for every fact, and
 //    clues that never name the country or its capital.
@@ -205,7 +209,9 @@ const { CULTURE } = ctx;
 const isSource = (u) => typeof u === "string" && /^https:\/\/[^\s]+$/.test(u);
 const hasWord = (text, word) => {
   const t = ` ${normalize(text).replace(/[^a-z0-9 ]/g, " ")} `;
-  const w = normalize(word).replace(/[^a-z0-9 ]/g, " ").trim();
+  const w = normalize(word)
+    .replace(/[^a-z0-9 ]/g, " ")
+    .trim();
   return w.length > 2 && t.includes(` ${w} `);
 };
 const clueOwner = new Map();
@@ -226,7 +232,8 @@ for (const c of COUNTRIES) {
   if (!kinds.some((k) => CULTURE_KINDS.has(k))) fail(`${c.code}: no culture clue`);
   for (const f of e.clues || []) {
     if (!KINDS.has(f.kind)) fail(`${c.code}: unknown clue kind ${f.kind}`);
-    if (!/^The thief [a-z].*[.!]$/.test(f.clue || "")) fail(`${c.code}: a clue must start with "The thief " and end with a period: ${f.clue}`);
+    if (!/^The thief [a-z].*[.!]$/.test(f.clue || ""))
+      fail(`${c.code}: a clue must start with "The thief " and end with a period: ${f.clue}`);
     if (!f.fact || f.fact.length > 220) fail(`${c.code}: clue fact missing or too long: ${f.fact}`);
     if (!isSource(f.source)) fail(`${c.code}: clue without an https source: ${f.clue}`);
     for (const n of [c.name, ...(c.aka || []), c.capital, ...(c.capitalAlso || []), ...(c.capitalAka || [])])
@@ -236,11 +243,14 @@ for (const c of COUNTRIES) {
     clueOwner.set(key, c.code);
   }
 }
-for (const k of Object.keys(CULTURE)) if (!COUNTRIES.some((c) => c.code === k)) fail(`culture.js: ${k} is not a country in data.js`);
+for (const k of Object.keys(CULTURE))
+  if (!COUNTRIES.some((c) => c.code === k)) fail(`culture.js: ${k} is not a country in data.js`);
 
 if (errors.length) {
   console.error(errors.map((e) => "✗ " + e).join("\n"));
   console.error(`\n${errors.length} problem(s) found.`);
   process.exit(1);
 }
-console.log(`✓ data.js, facts.js, and culture.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);
+console.log(
+  `✓ data.js, facts.js, and culture.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`,
+);

@@ -30,7 +30,7 @@
     title: name,
     subtitle: capital,
   });
-  const stateWhereItem = ([name, capital, lat, lng]) => ({
+  const stateWhereItem = ([name, , lat, lng]) => ({
     key: "where:us:" + name,
     topic: "where",
     question: "Where is",
@@ -67,9 +67,7 @@
   // The country name is the answer, so it shows only after the answer.
   const flagItem = (c) => {
     const twin = COUNTRIES.find((t) => t.code === FLAG_TWINS[c.code]);
-    const twinNote = twin
-      ? `This is the flag of ${c.name}. ${twin.name}'s flag looks almost the same.`
-      : "";
+    const twinNote = twin ? `This is the flag of ${c.name}. ${twin.name}'s flag looks almost the same.` : "";
     return {
       key: "flag:" + c.code,
       topic: "flags",
@@ -143,21 +141,42 @@
   // the third correct answer in a row. A wrong answer never removes points.
   const POINTS = { easy: 10, type: 20, runBonus: 5, runFrom: 3 };
   const AVATARS = [
-    "🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁",
-    "🐶", "🐱", "🐰", "🐻", "🐷", "🐵", "🦄", "🐢",
-    "🐬", "🦖", "🐧", "🦒", "🐝", "🦋", "🐳", "🦜",
+    "🦊",
+    "🐼",
+    "🐯",
+    "🐸",
+    "🐙",
+    "🦉",
+    "🐨",
+    "🦁",
+    "🐶",
+    "🐱",
+    "🐰",
+    "🐻",
+    "🐷",
+    "🐵",
+    "🦄",
+    "🐢",
+    "🐬",
+    "🦖",
+    "🐧",
+    "🦒",
+    "🐝",
+    "🦋",
+    "🐳",
+    "🦜",
   ];
 
   const $ = (id) => document.getElementById(id);
   const deckTitleEl = $("deckTitle");
-  const deckSelectEl = $("deckSelect");
+  const deckSelectEl = /** @type {HTMLSelectElement} */ ($("deckSelect"));
   const stateNameEl = $("stateName");
   const nameNoteEl = $("nameNote");
-  const flagEl = $("flag");
+  const flagEl = /** @type {HTMLImageElement} */ ($("flag"));
   const questionEl = $("questionText");
-  const topicSelectEl = $("topicSelect");
+  const topicSelectEl = /** @type {HTMLSelectElement} */ ($("topicSelect"));
   const turnEl = $("turnBanner");
-  const inputEl = $("answerInput");
+  const inputEl = /** @type {HTMLInputElement} */ ($("answerInput"));
   const choicesEl = $("choices");
   const feedbackEl = $("feedback");
   const formEl = $("answerForm");
@@ -204,9 +223,7 @@
   // players: { list: [{ id, name, avatar, level }], playing: [id], turn }
   // `playing` is the turn order of this game; level is "easy" or "type".
   const players = readJSON(PLAYERS_KEY, { list: [], playing: [], turn: 0 });
-  players.playing = (players.playing || []).filter((id) =>
-    players.list.some((p) => p.id === id),
-  );
+  players.playing = (players.playing || []).filter((id) => players.list.some((p) => p.id === id));
   if (!(players.turn < players.playing.length)) players.turn = 0;
   const savePlayers = () => writeJSON(PLAYERS_KEY, players);
 
@@ -276,8 +293,7 @@
   // "Where is it?" is the same tap for both levels, except that Type on the
   // world deck shows the whole world. The points follow the task.
   function hardTask() {
-    if (current?.topic === "where")
-      return current.map.kind === "world" && currentDeckId === "world" && !isEasy();
+    if (current?.topic === "where") return current.map.kind === "world" && currentDeckId === "world" && !isEasy();
     return !isEasy();
   }
 
@@ -348,8 +364,7 @@
   }
 
   function addPlayer(name, avatar) {
-    const id =
-      Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     players.list.push({ id, name, avatar, level: "type" });
     players.playing.push(id);
     // The first player ever gets the v2 progress, only one time.
@@ -433,8 +448,7 @@
   function entryFor(item) {
     const p = turnPlayer();
     const progress = p ? progressOf(p.id) : {};
-    if (!progress[item.key])
-      progress[item.key] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
+    if (!progress[item.key]) progress[item.key] = { correct: 0, wrong: 0, streak: 0, seen: 0 };
     return progress[item.key];
   }
 
@@ -444,7 +458,7 @@
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // strip accents
       .replace(/\bsaint\b/g, "st") // Saint <-> St
-      .replace(/[.,'’ʻ`\-]/g, "")
+      .replace(/[.,'’ʻ`-]/g, "")
       .trim()
       .replace(/\s+/g, " ");
   }
@@ -471,8 +485,7 @@
     return prev[b.length];
   }
 
-  const isAccepted = (item, answer) =>
-    item.accepted.some((c) => normalize(c) === normalize(answer));
+  const isAccepted = (item, answer) => item.accepted.some((c) => normalize(c) === normalize(answer));
 
   // Returns "exact", "close", or "no".
   // Close = small typo (1 edit for short words, up to ~20% of length for longer ones),
@@ -520,7 +533,7 @@
   // accepted answer for this item, and the same region comes first.
   function choicesFor(item) {
     const others = shuffle(deckItems().filter((o) => o.key !== item.key));
-    others.sort((a, b) => (b.group === item.group) - (a.group === item.group));
+    others.sort((a, b) => Number(b.group === item.group) - Number(a.group === item.group));
     const wrong = [];
     for (const o of others) {
       if (wrong.length === CHOICES - 1) break;
@@ -576,16 +589,13 @@
       else if (c === "learning") learning++;
       else fresh++;
     }
-    $("masteredCount").textContent = mastered;
-    $("learningCount").textContent = learning;
-    $("newCount").textContent = fresh;
+    $("masteredCount").textContent = String(mastered);
+    $("learningCount").textContent = String(learning);
+    $("newCount").textContent = String(fresh);
     const counts = { mastered, learning, new: fresh };
-    document.querySelectorAll(".stat[data-cat]").forEach((el) => {
+    /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".stat[data-cat]")).forEach((el) => {
       const cat = el.dataset.cat;
-      el.setAttribute(
-        "aria-disabled",
-        counts[cat] === 0 ? "true" : "false",
-      );
+      el.setAttribute("aria-disabled", counts[cat] === 0 ? "true" : "false");
     });
   }
 
@@ -596,9 +606,7 @@
   };
 
   const flagHtml = (item, cls) =>
-    item.flag
-      ? `<img class="${cls}" src="flags/${item.flag.toLowerCase()}.svg" alt="" />`
-      : "";
+    item.flag ? `<img class="${cls}" src="flags/${item.flag.toLowerCase()}.svg" alt="" />` : "";
 
   function openCategory(cat) {
     const rows = deckItems()
@@ -607,19 +615,9 @@
 
     if (cat === "learning") {
       // Worst first: most wrongs, then lowest streak
-      rows.sort(
-        (a, b) =>
-          b.p.wrong - a.p.wrong ||
-          a.p.streak - b.p.streak ||
-          a.name.localeCompare(b.name),
-      );
+      rows.sort((a, b) => b.p.wrong - a.p.wrong || a.p.streak - b.p.streak || a.name.localeCompare(b.name));
     } else if (cat === "mastered") {
-      rows.sort(
-        (a, b) =>
-          b.p.streak - a.p.streak ||
-          b.p.correct - a.p.correct ||
-          a.name.localeCompare(b.name),
-      );
+      rows.sort((a, b) => b.p.streak - a.p.streak || b.p.correct - a.p.correct || a.name.localeCompare(b.name));
     } else {
       rows.sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -632,15 +630,14 @@
     } else {
       body.innerHTML = rows
         .map(({ item, p }) => {
-          let meta = "";
+          let meta;
           if (cat === "new") {
             meta = `<div>—</div>`;
           } else {
             const total = p.correct + p.wrong;
             const streakHtml = Array.from(
               { length: MASTERED_AT },
-              (_, i) =>
-                `<span class="dot ${i < Math.min(p.streak, MASTERED_AT) ? "on" : ""}"></span>`,
+              (_, i) => `<span class="dot ${i < Math.min(p.streak, MASTERED_AT) ? "on" : ""}"></span>`,
             ).join("");
             meta = `
       <div><span class="ok">${p.correct}</span> / <span class="bad">${p.wrong}</span> <span style="color:var(--muted)">of ${total}</span></div>
@@ -674,7 +671,7 @@
 
   // While a dialog is open, the page behind it takes no clicks, keys or focus.
   function setInert(on) {
-    document.querySelector(".app").inert = on;
+    /** @type {HTMLElement} */ (document.querySelector(".app")).inert = on;
   }
 
   // In-app confirmation. Some browsers and app previews block confirm(),
@@ -703,15 +700,9 @@
   // The header button lists everyone in this game.
   function renderPlayerButton() {
     const playing = players.playing.map(playerById);
-    $("playerAvatar").textContent = playing.length
-      ? playing.map((p) => p.avatar).join("")
-      : "👤";
+    $("playerAvatar").textContent = playing.length ? playing.map((p) => p.avatar).join("") : "👤";
     $("playerName").textContent =
-      playing.length === 1
-        ? playing[0].name
-        : playing.length
-          ? `${playing.length} players`
-          : "Players";
+      playing.length === 1 ? playing[0].name : playing.length ? `${playing.length} players` : "Players";
   }
 
   function renderTurn() {
@@ -757,8 +748,7 @@
         const b = document.createElement("button");
         b.type = "button";
         b.textContent = label;
-        b.title =
-          value === "easy" ? "Choose from 4 answers" : "Type the answer";
+        b.title = value === "easy" ? "Choose from 4 answers" : "Type the answer";
         b.className = (p.level || "type") === value ? "on" : "";
         b.setAttribute("role", "radio");
         b.setAttribute("aria-checked", b.className === "on" ? "true" : "false");
@@ -772,10 +762,7 @@
       remove.setAttribute("aria-label", "Remove " + p.name);
       remove.textContent = "×";
       remove.addEventListener("click", async () => {
-        const ok = await askConfirm(
-          `Remove ${p.name}? This deletes all of ${p.name}'s progress.`,
-          "Remove",
-        );
+        const ok = await askConfirm(`Remove ${p.name}? This deletes all of ${p.name}'s progress.`, "Remove");
         if (ok) removePlayer(p.id);
       });
 
@@ -821,11 +808,8 @@
 
     // The game can start only when somebody plays.
     const ready = players.playing.length > 0;
-    $("startBtn").disabled = !ready;
-    $("startBtn").textContent =
-      players.playing.length > 1
-        ? `Start (${players.playing.length} players)`
-        : "Start";
+    /** @type {HTMLButtonElement} */ ($("startBtn")).disabled = !ready;
+    $("startBtn").textContent = players.playing.length > 1 ? `Start (${players.playing.length} players)` : "Start";
     $("playersClose").hidden = !ready;
   }
 
@@ -840,7 +824,7 @@
     if (!p) return;
     editingId = id;
     chosenAvatar = p.avatar;
-    $("newPlayerName").value = p.name;
+    /** @type {HTMLInputElement} */ ($("newPlayerName")).value = p.name;
     renderPlayers();
     $("newPlayerName").focus({ preventScroll: true });
   }
@@ -848,7 +832,7 @@
   function stopEdit() {
     editingId = null;
     chosenAvatar = freeAvatar();
-    $("newPlayerName").value = "";
+    /** @type {HTMLInputElement} */ ($("newPlayerName")).value = "";
     renderPlayers();
   }
 
@@ -927,8 +911,7 @@
     next.focus({ preventScroll: true });
   }
 
-  const nextPlayer = () =>
-    playerById(players.playing[(players.turn + 1) % players.playing.length]);
+  const nextPlayer = () => playerById(players.playing[(players.turn + 1) % players.playing.length]);
 
   // Pass the turn to the next player, then show their card.
   function goNext() {
@@ -975,8 +958,7 @@
       });
     }
     showAskingButtons();
-    if (!easy && !dialogOpen())
-      setTimeout(() => inputEl.focus({ preventScroll: true }), 0);
+    if (!easy && !dialogOpen()) setTimeout(() => inputEl.focus({ preventScroll: true }), 0);
   }
 
   function nextCard() {
@@ -1099,10 +1081,7 @@
     record(true);
     inputEl.className = "close";
     inputEl.disabled = true;
-    reveal(
-      `Close — spelled <span class="answer">${shownAnswer(typed)}</span>`,
-      "warn",
-    );
+    reveal(`Close — spelled <span class="answer">${shownAnswer(typed)}</span>`, "warn");
   }
 
   function handleWrong(userAnswer) {
@@ -1120,7 +1099,7 @@
 
   // Easy mode: color the picked button, and always show the right one.
   function markChoices(picked) {
-    for (const b of choicesEl.querySelectorAll(".choice")) {
+    for (const b of /** @type {NodeListOf<HTMLButtonElement>} */ (choicesEl.querySelectorAll(".choice"))) {
       b.disabled = true;
       if (b.textContent === current.answer) b.classList.add("right");
       else if (b === picked) b.classList.add("wrong");
@@ -1165,8 +1144,7 @@
 
   // Flags is not offered for the US States deck.
   function renderTopicSelect() {
-    for (const opt of topicSelectEl.options)
-      opt.disabled = !topicAllowed(currentDeckId, opt.value);
+    for (const opt of topicSelectEl.options) opt.disabled = !topicAllowed(currentDeckId, opt.value);
     topicSelectEl.value = currentTopic;
     deckTitleEl.textContent = deckLabel();
   }
@@ -1199,10 +1177,7 @@
   $("resetBtn").addEventListener("click", async () => {
     const p = turnPlayer();
     if (!p) return;
-    const ok = await askConfirm(
-      `Reset ${p.name}'s progress for ${deckLabel()}?`,
-      "Reset",
-    );
+    const ok = await askConfirm(`Reset ${p.name}'s progress for ${deckLabel()}?`, "Reset");
     if (!ok) return;
     const progress = progressOf(p.id);
     for (const item of deckItems()) delete progress[item.key];
@@ -1211,7 +1186,7 @@
     nextCard();
   });
 
-  document.querySelectorAll(".stat[data-cat]").forEach((el) => {
+  /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(".stat[data-cat]")).forEach((el) => {
     const open = () => {
       if (el.getAttribute("aria-disabled") === "true") return;
       openCategory(el.dataset.cat);
@@ -1243,7 +1218,7 @@
   });
   $("addPlayerForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const name = $("newPlayerName").value.trim();
+    const name = /** @type {HTMLInputElement} */ ($("newPlayerName")).value.trim();
     if (!name) return;
     const editing = playerById(editingId);
     if (editing) {
@@ -1256,7 +1231,7 @@
       renderScore();
       return;
     }
-    $("newPlayerName").value = "";
+    /** @type {HTMLInputElement} */ ($("newPlayerName")).value = "";
     addPlayer(name, chosenAvatar);
     $("newPlayerName").focus();
   });
@@ -1272,7 +1247,7 @@
     }
     // Easy mode: keys 1-4 pick an answer.
     if (phase === "asking" && !choicesEl.hidden && !dialogOpen() && /^[1-9]$/.test(e.key)) {
-      choicesEl.querySelector(`.choice[data-key="${e.key}"]`)?.click();
+      /** @type {HTMLElement | null} */ (choicesEl.querySelector(`.choice[data-key="${e.key}"]`))?.click();
     }
   });
 
@@ -1318,38 +1293,36 @@
   function loadMap() {
     if (!mapLoading) {
       // In order: d3-geo needs d3-array.
-      mapLoading = MAP_SCRIPTS.reduce(
-        (p, src) => p.then(() => loadScript(src)),
-        Promise.resolve(),
-      ).then(() => {
-        const w = window.WORLD_MAP;
-        const u = window.US_MAP;
-        const countries = topojson.feature(w, w.objects.countries).features;
-        const states = topojson.feature(u, u.objects.states).features;
-        // Center and radius of each country, used to skip countries that
-        // are far outside the view.
-        for (const f of countries) {
-          f.center = d3.geoCentroid(f);
-          let r = 0;
-          const walk = (c) => {
-            if (typeof c[0] === "number") r = Math.max(r, d3.geoDistance(c, f.center));
-            else c.forEach(walk);
+      mapLoading = MAP_SCRIPTS.reduce((p, src) => p.then(() => loadScript(src)), Promise.resolve())
+        .then(() => {
+          const w = window.WORLD_MAP;
+          const u = window.US_MAP;
+          const countries = topojson.feature(w, w.objects.countries).features;
+          const states = topojson.feature(u, u.objects.states).features;
+          // Center and radius of each country, used to skip countries that
+          // are far outside the view.
+          for (const f of countries) {
+            f.center = d3.geoCentroid(f);
+            let r = 0;
+            const walk = (c) => {
+              if (typeof c[0] === "number") r = Math.max(r, d3.geoDistance(c, f.center));
+              else c.forEach(walk);
+            };
+            walk(f.geometry.coordinates);
+            f.radius = r;
+          }
+          mapData = {
+            countries,
+            countryById: new Map(countries.map((f) => [f.properties.iso2, f])),
+            states,
+            stateById: new Map(states.map((f) => [f.properties.name, f])),
+            nation: topojson.feature(u, u.objects.nation),
           };
-          walk(f.geometry.coordinates);
-          f.radius = r;
-        }
-        mapData = {
-          countries,
-          countryById: new Map(countries.map((f) => [f.properties.iso2, f])),
-          states,
-          stateById: new Map(states.map((f) => [f.properties.name, f])),
-          nation: topojson.feature(u, u.objects.nation),
-        };
-      })
-      .catch((err) => {
-        mapLoading = null; // try again on the next card
-        throw err;
-      });
+        })
+        .catch((err) => {
+          mapLoading = null; // try again on the next card
+          throw err;
+        });
     }
     return mapLoading;
   }
@@ -1392,10 +1365,7 @@
       type: "Feature",
       geometry: d3.geoCircle().center([c.lng, c.lat]).radius(4)(),
     }));
-    return d3
-      .geoEqualEarth()
-      .rotate([-lng, 0])
-      .fitExtent(extent, { type: "FeatureCollection", features: circles });
+    return d3.geoEqualEarth().rotate([-lng, 0]).fitExtent(extent, { type: "FeatureCollection", features: circles });
   }
 
   function drawMap(item, revealed) {
@@ -1433,9 +1403,10 @@
     // Zoom: each card starts at the fitted view. Showing the answer keeps
     // the player's zoom, because the card stays the same.
     if (mapView.key !== item.key) {
-      const world = m.kind === "world"
-        ? d3.geoEqualEarth().rotate([-m.lng, 0]).fitExtent(extent, { type: "Sphere" }).scale()
-        : projection.scale() * 0.8;
+      const world =
+        m.kind === "world"
+          ? d3.geoEqualEarth().rotate([-m.lng, 0]).fitExtent(extent, { type: "Sphere" }).scale()
+          : projection.scale() * 0.8;
       mapView = {
         key: item.key,
         k: 1,
@@ -1460,17 +1431,19 @@
     let viewRadius = Infinity;
     if (m.kind === "world") {
       viewCenter = projection.invert([MAP_W / 2, MAP_H / 2]);
-      const corners = [[0, 0], [MAP_W, 0], [0, MAP_H], [MAP_W, MAP_H]].map((p) =>
-        projection.invert(p),
-      );
+      const corners = [
+        [0, 0],
+        [MAP_W, 0],
+        [0, MAP_H],
+        [MAP_W, MAP_H],
+      ].map((p) => projection.invert(p));
       // If the whole globe fits in the view, draw everything.
       const [[x0, y0], [x1, y1]] = sphereBounds(projection);
       const globeInside = x0 >= 0 && y0 >= 0 && x1 <= MAP_W && y1 <= MAP_H;
       if (!globeInside && viewCenter && corners.every((c) => c && Number.isFinite(c[0])))
         viewRadius = Math.max(...corners.map((c) => d3.geoDistance(c, viewCenter)));
     }
-    const inView = (f) =>
-      !viewCenter || d3.geoDistance(f.center, viewCenter) - f.radius < viewRadius;
+    const inView = (f) => !viewCenter || d3.geoDistance(f.center, viewCenter) - f.radius < viewRadius;
     if (m.kind === "world") {
       parts.push(`<path class="map-water" d="${path({ type: "Sphere" })}"/>`);
       parts.push(`<path class="map-grid" d="${path(d3.geoGraticule10())}"/>`);
@@ -1494,8 +1467,7 @@
           if (rings.some(([x, y]) => Math.hypot(x - p[0], y - p[1]) < 16)) continue;
           rings.push(p);
         }
-        for (const [x, y] of rings)
-          parts.push(`<circle class="map-ring" cx="${x}" cy="${y}" r="10"/>`);
+        for (const [x, y] of rings) parts.push(`<circle class="map-ring" cx="${x}" cy="${y}" r="10"/>`);
         ringed = rings.length > 0;
       }
     }
@@ -1503,9 +1475,7 @@
     if (revealed && lastTap && item.topic === "where") {
       const t = projection(lastTap.lonlat);
       if (t)
-        parts.push(
-          `<circle class="map-tap ${lastTap.correct ? "good" : "bad"}" cx="${t[0]}" cy="${t[1]}" r="6"/>`,
-        );
+        parts.push(`<circle class="map-tap ${lastTap.correct ? "good" : "bad"}" cx="${t[0]}" cy="${t[1]}" r="6"/>`);
     }
     if (revealed) {
       const p = projection(capital);
@@ -1528,17 +1498,12 @@
       mapSvgEl.setAttribute("aria-label", "Map. Tap a place to answer.");
       mapCaptionEl.textContent = "Tap where you think it is.";
     } else if (item.topic === "capitals") {
-      mapSvgEl.setAttribute(
-        "aria-label",
-        revealed ? `Map of ${where}, with ${item.answer} marked` : `Map of ${where}`,
-      );
+      mapSvgEl.setAttribute("aria-label", revealed ? `Map of ${where}, with ${item.answer} marked` : `Map of ${where}`);
       mapCaptionEl.textContent = revealed ? `${marked} The dot marks ${item.answer}.` : marked;
     } else {
       mapSvgEl.setAttribute("aria-label", `Map of ${where}`);
       mapCaptionEl.textContent =
-        item.topic === "where" && lastTap
-          ? `${marked} The small circle is where you tapped.`
-          : marked;
+        item.topic === "where" && lastTap ? `${marked} The small circle is where you tapped.` : marked;
     }
   }
 
@@ -1589,8 +1554,7 @@
     // area that is not a UN member (or, on the US map, not a state).
     const tiny = d3.geoPath(projection).area(target) < 300;
     const correct =
-      tapped === target ||
-      (tiny && !nameOf(tapped, m.kind) && screenDistance(target, point, projection) <= TAP_SLACK);
+      tapped === target || (tiny && !nameOf(tapped, m.kind) && screenDistance(target, point, projection) <= TAP_SLACK);
     lastTap = { lonlat, correct };
     record(correct);
     if (correct) {
@@ -1619,8 +1583,7 @@
     redrawQueued = true;
     requestAnimationFrame(() => {
       redrawQueued = false;
-      if (lastMapDraw && lastMapDraw.item === current)
-        drawMap(lastMapDraw.item, lastMapDraw.revealed);
+      if (lastMapDraw && lastMapDraw.item === current) drawMap(lastMapDraw.item, lastMapDraw.revealed);
     });
   }
 
@@ -1628,8 +1591,7 @@
   // and never let a drag show empty space beyond its edge.
   function keepInFrame(projection, outline) {
     const [[x0, y0], [x1, y1]] = d3.geoPath(projection).bounds(outline);
-    const shift = (lo, hi, size) =>
-      hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0;
+    const shift = (lo, hi, size) => (hi - lo <= size ? (size - lo - hi) / 2 : lo > 0 ? -lo : hi < size ? size - hi : 0);
     const dx = shift(x0, x1, MAP_W);
     const dy = shift(y0, y1, MAP_H);
     if (dx || dy) {
@@ -1668,10 +1630,7 @@
     const r = mapSvgEl.getBoundingClientRect();
     const left = r.left + mapSvgEl.clientLeft;
     const top = r.top + mapSvgEl.clientTop;
-    return [
-      ((clientX - left) * MAP_W) / mapSvgEl.clientWidth,
-      ((clientY - top) * MAP_H) / mapSvgEl.clientHeight,
-    ];
+    return [((clientX - left) * MAP_W) / mapSvgEl.clientWidth, ((clientY - top) * MAP_H) / mapSvgEl.clientHeight];
   }
 
   const pointers = new Map();
@@ -1690,9 +1649,7 @@
       pendingTap = null;
     }
     tapStart =
-      pointers.size === 1 && !secondClick
-        ? { id: e.pointerId, p, at: Date.now(), projection: lastProjection }
-        : null;
+      pointers.size === 1 && !secondClick ? { id: e.pointerId, p, at: Date.now(), projection: lastProjection } : null;
   });
   mapSvgEl.addEventListener("pointermove", (e) => {
     const prev = pointers.get(e.pointerId);
@@ -1710,8 +1667,7 @@
       const [other] = [...pointers].filter(([id]) => id !== e.pointerId).map(([, p]) => p);
       const before = Math.hypot(prev[0] - other[0], prev[1] - other[1]);
       const after = Math.hypot(now[0] - other[0], now[1] - other[1]);
-      if (before > 0)
-        zoomAt((now[0] + other[0]) / 2, (now[1] + other[1]) / 2, after / before);
+      if (before > 0) zoomAt((now[0] + other[0]) / 2, (now[1] + other[1]) / 2, after / before);
     }
     pointers.set(e.pointerId, now);
   });
@@ -1726,7 +1682,7 @@
     tapStart = null;
   });
   for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
-    mapSvgEl.addEventListener(type, (e) => {
+    mapSvgEl.addEventListener(type, (/** @type {PointerEvent} */ e) => {
       pointers.delete(e.pointerId);
       if (type !== "pointerup") tapStart = null;
     });
@@ -1739,8 +1695,7 @@
     const [px, py] = lastProjection.translate();
     const ox = mapView.translate[0] - px;
     const oy = mapView.translate[1] - py;
-    const clamp = (d, lo, hi, size) =>
-      hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d));
+    const clamp = (d, lo, hi, size) => (hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d)));
     return [clamp(dx, x0 + ox, x1 + ox, MAP_W), clamp(dy, y0 + oy, y1 + oy, MAP_H)];
   }
 
@@ -1754,9 +1709,7 @@
     if (now - wheelGesture.at > 300)
       wheelGesture.mouse =
         e.deltaMode !== 0 ||
-        (e.deltaX === 0 &&
-          Math.abs(e.deltaY) >= 40 &&
-          (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
+        (e.deltaX === 0 && Math.abs(e.deltaY) >= 40 && (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
     wheelGesture.at = now;
     return wheelGesture.mouse;
   }
@@ -1798,8 +1751,8 @@
   function renderMap(revealed) {
     // "Where is it?" is played on the map, so it always shows.
     const forced = current?.topic === "where";
-    $("mapToggle").checked = settings.showMap || forced;
-    $("mapToggle").disabled = forced;
+    /** @type {HTMLInputElement} */ ($("mapToggle")).checked = settings.showMap || forced;
+    /** @type {HTMLInputElement} */ ($("mapToggle")).disabled = forced;
     mapFigureEl.hidden = !(settings.showMap || forced);
     if (mapFigureEl.hidden || !current?.map) return;
     const item = current;
@@ -1834,7 +1787,7 @@
   }
 
   $("mapToggle").addEventListener("change", (e) => {
-    settings.showMap = e.target.checked;
+    settings.showMap = /** @type {HTMLInputElement} */ (e.target).checked;
     saveSettings();
     renderMap(phase === "revealed");
   });

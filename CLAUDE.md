@@ -26,6 +26,7 @@ Outside `site/`:
 - `scripts/test-chase.js`: the chase engine test (5,000 cases per level).
 - `scripts/build-map.sh`: builds `site/map/` and `site/vendor/` from Natural Earth and npm packages. Run it only when the map source or a library version changes.
 - `cloudflare.config.ts` and `wrangler.config.ts`: the deploy setup (see below).
+- `eslint.config.js`, `tsconfig.json`, `types/globals.d.ts`, `.prettierrc.json`, `.prettierignore`: the code checks (see below).
 
 ## Commands
 
@@ -34,7 +35,11 @@ Outside `site/`:
 - `python3 -m http.server -d site`: run the app with no install, at http://localhost:8000. You can also open `site/index.html` directly.
 - `npm test`: `npm run check` plus the chase engine test.
 - `npm run check`: check the data, the flags, and the maps (every capital must lie on its own country or state). Run it after each change to `site/data.js`, `site/flags/`, or `site/map/`. It exits with code 1 on a problem. It needs `npm install` first.
-- `npm run deploy`: run `npm test`, then `cf deploy`. Sign in first with `npx cf auth login` (from a phone: `npx cf auth login --no-browser`, then open the link and enter the code).
+- `npm run lint`: ESLint on the page scripts and the Node scripts.
+- `npm run typecheck`: `tsc` checks the JavaScript (`checkJs`, not strict). It writes no files.
+- `npm run format`: format with Prettier. `npm run format:check` only reports.
+- `npm run verify`: lint, typecheck, format check, and `npm test`. Run it before each commit. There is no CI, so this is the check.
+- `npm run deploy`: run `npm run verify`, then `cf deploy`. Sign in first with `npx cf auth login` (from a phone: `npx cf auth login --no-browser`, then open the link and enter the code).
 
 ## Deploy
 
@@ -47,6 +52,14 @@ The app deploys to Cloudflare Workers static assets with the `cf` CLI (beta), no
 - `.cloudflare/` is generated build output and is in `.gitignore`.
 
 Load the scripts with classic `<script>` tags, not ES modules. A browser blocks modules when the page opens from `file://`. `data.js` declares top-level `const`s that `app.js` reads as globals.
+
+## Code checks
+
+- The page scripts are classic scripts that share top-level globals. `eslint.config.js` lists the shared globals (`COUNTRIES`, `ChaseEngine`, and so on). Add a new shared global there.
+- `types/globals.d.ts` declares the vendor and map globals (`d3`, `topojson`, `WORLD_MAP`, `US_MAP`) as `any`.
+- `tsconfig.json` uses `"module": "preserve"`, so `tsc` reads the `site/` files as scripts, not modules, although `package.json` has `"type": "module"`.
+- `$(id)` returns an `HTMLElement`. To use `.value`, `.disabled`, `.checked`, or `.src`, add a JSDoc cast: `/** @type {HTMLInputElement} */ ($("id")).value`.
+- Prettier does not format `site/data.js` (a table that is aligned by hand) or the generated files (see `.prettierignore`).
 
 ## Data rules
 

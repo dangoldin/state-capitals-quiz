@@ -47,14 +47,15 @@ const ChaseEngine = (() => {
     const rad = Math.PI / 180;
     const dLat = (cb.lat - ca.lat) * rad;
     const dLng = (cb.lng - ca.lng) * rad;
-    const h =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(ca.lat * rad) * Math.cos(cb.lat * rad) * Math.sin(dLng / 2) ** 2;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(ca.lat * rad) * Math.cos(cb.lat * rad) * Math.sin(dLng / 2) ** 2;
     return 2 * 6371 * Math.asin(Math.sqrt(h));
   }
 
   const firstLetter = (name) =>
-    name.normalize("NFD").replace(/[\u0300-\u036f]/g, "")[0].toUpperCase();
+    name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")[0]
+      .toUpperCase();
   // A child may know a country by another name ("Ivory Coast"), so a letter
   // clue fits a country if any of its names starts with that letter.
   const lettersOf = (c) => new Set([c.name, ...(c.aka || [])].map(firstLetter));
@@ -74,10 +75,25 @@ const ChaseEngine = (() => {
     "Central African CFA franc": "Central African francs",
   };
   const PLURAL_WORDS = {
-    dollar: "dollars", euro: "euros", franc: "francs", pound: "pounds", peso: "pesos",
-    rupee: "rupees", shilling: "shillings", dinar: "dinars", rial: "rials", riyal: "riyals",
-    dirham: "dirhams", ruble: "rubles", yen: "yen", yuan: "yuan", won: "won", rand: "rand",
-    lira: "lira", baht: "baht", rupiah: "rupiah",
+    dollar: "dollars",
+    euro: "euros",
+    franc: "francs",
+    pound: "pounds",
+    peso: "pesos",
+    rupee: "rupees",
+    shilling: "shillings",
+    dinar: "dinars",
+    rial: "rials",
+    riyal: "riyals",
+    dirham: "dirhams",
+    ruble: "rubles",
+    yen: "yen",
+    yuan: "yuan",
+    won: "won",
+    rand: "rand",
+    lira: "lira",
+    baht: "baht",
+    rupiah: "rupiah",
   };
   function moneyPlural(name) {
     if (MONEY_PLURAL[name]) return MONEY_PLURAL[name];
@@ -104,9 +120,7 @@ const ChaseEngine = (() => {
     const cs = COUNTRIES.filter((c) => c.continent === ct);
     for (const s of SUPERLATIVES) {
       if (SUPERLATIVE_EXCLUDED.has(`${ct}/${s.key}`)) continue;
-      const sorted = cs
-        .map((c) => ({ code: c.code, v: FACTS[c.code][s.field] }))
-        .sort((a, b) => s.dir * (b.v - a.v));
+      const sorted = cs.map((c) => ({ code: c.code, v: FACTS[c.code][s.field] })).sort((a, b) => s.dir * (b.v - a.v));
       const [w, r2] = sorted;
       const margin = Math.abs(w.v - r2.v) / Math.max(w.v, r2.v);
       if (margin < 0.2) continue;
@@ -126,10 +140,24 @@ const ChaseEngine = (() => {
   }
 
   const WITNESSES = [
-    "A taxi driver", "A flower seller", "A hotel porter", "A street musician", "A baker",
-    "A pilot", "A librarian", "A tour guide", "A ticket clerk", "A café owner",
-    "A bus driver", "A museum guard", "A kite seller", "A juggler", "A lost tourist",
-    "A very chatty parrot", "A sleepy night guard", "A kid selling lemonade",
+    "A taxi driver",
+    "A flower seller",
+    "A hotel porter",
+    "A street musician",
+    "A baker",
+    "A pilot",
+    "A librarian",
+    "A tour guide",
+    "A ticket clerk",
+    "A café owner",
+    "A bus driver",
+    "A museum guard",
+    "A kite seller",
+    "A juggler",
+    "A lost tourist",
+    "A very chatty parrot",
+    "A sleepy night guard",
+    "A kid selling lemonade",
   ];
   const SAYS = ["says", "remembers that", "is sure that", "told the police that"];
   // A witness line: "A baker says the thief bought a ticket to Lima." An
@@ -166,8 +194,7 @@ const ChaseEngine = (() => {
     let used = 0;
     const line = (action) => witnessLine(r, action, deck[used++ % deck.length]);
     // Easy and up. A coded note on Easy has at most 6 letters.
-    const coded =
-      r() < 0.25 && (level !== "easy" || c.capital.length <= 6) ? scramble(r, c.capital) : null;
+    const coded = r() < 0.25 && (level !== "easy" || c.capital.length <= 6) ? scramble(r, c.capital) : null;
     out.push(
       clue(
         "capital",
@@ -349,11 +376,21 @@ const ChaseEngine = (() => {
     if (level === "easy") {
       const strong = useFact
         ? pick(r, facts)
-        : pick(r, unique.filter((cl) => cl.type === "capital" || cl.type === "flag"));
+        : pick(
+            r,
+            unique.filter((cl) => cl.type === "capital" || cl.type === "flag"),
+          );
       const extra = pick(r, narrow);
       return shuffle(r, [strong, extra]);
     }
-    if (useFact) return shuffle(r, [pick(r, facts), pick(r, narrow.filter((cl) => cl.type !== "letter")) || pick(r, narrow)]);
+    if (useFact)
+      return shuffle(r, [
+        pick(r, facts),
+        pick(
+          r,
+          narrow.filter((cl) => cl.type !== "letter"),
+        ) || pick(r, narrow),
+      ]);
     if (level === "hard") {
       const sup = all.filter((cl) => cl.type === "superlative");
       if (sup.length && r() < 0.5) return shuffle(r, [pick(r, sup), pick(r, narrow)]);
@@ -369,7 +406,9 @@ const ChaseEngine = (() => {
       for (const size of [2, 3]) {
         if (types.length < size) continue;
         for (let tries = 0; tries < 40; tries++) {
-          const set = shuffle(r, types).slice(0, size).map((t) => pick(r, byType[t]));
+          const set = shuffle(r, types)
+            .slice(0, size)
+            .map((t) => pick(r, byType[t]));
           if (works(set)) return set;
         }
       }
@@ -390,9 +429,14 @@ const ChaseEngine = (() => {
       facts.length &&
         (() => {
           const fc = pick(r, facts);
-          return clue("fact", witnessLine(r, fc.clue.replace(/^The thief /, "").replace(/\.$/, "")), (k) => k === code, {
-            fact: fc.fact,
-          });
+          return clue(
+            "fact",
+            witnessLine(r, fc.clue.replace(/^The thief /, "").replace(/\.$/, "")),
+            (k) => k === code,
+            {
+              fact: fc.fact,
+            },
+          );
         })(),
       clue(
         "continent",
@@ -443,18 +487,37 @@ const ChaseEngine = (() => {
   // different groups name exactly one suspect: LAYOUT gives each suspect's
   // value (0–2) in each of the three groups.
   // Suspects are [id, name, snack, emoji].
-  const LAYOUT = [[0, 0, 0], [0, 1, 1], [1, 0, 2], [1, 2, 1], [2, 2, 0], [2, 1, 2]];
+  const LAYOUT = [
+    [0, 0, 0],
+    [0, 1, 1],
+    [1, 0, 2],
+    [1, 2, 1],
+    [2, 2, 0],
+    [2, 1, 2],
+  ];
   const GANGS = [
     {
       id: "muddle",
       name: "the Muddle Mob",
       groups: [
-        { key: "hat", values: ["a tall top hat", "a woolly beanie", "a floppy sun hat"],
-          clue: (v) => `A witness noticed that the thief wore ${v}.`, lineup: (v) => `Wears ${v}.` },
-        { key: "pet", values: ["a parrot", "a goldfish", "a tortoise"],
-          clue: (v) => `The thief had ${v} along for the trip.`, lineup: (v) => `Has ${v}.` },
-        { key: "hobby", values: ["yodeling", "chess", "roller skating"],
-          clue: (v) => `The hotel clerk says the thief would not stop talking about ${v}.`, lineup: (v) => `Loves ${v}.` },
+        {
+          key: "hat",
+          values: ["a tall top hat", "a woolly beanie", "a floppy sun hat"],
+          clue: (v) => `A witness noticed that the thief wore ${v}.`,
+          lineup: (v) => `Wears ${v}.`,
+        },
+        {
+          key: "pet",
+          values: ["a parrot", "a goldfish", "a tortoise"],
+          clue: (v) => `The thief had ${v} along for the trip.`,
+          lineup: (v) => `Has ${v}.`,
+        },
+        {
+          key: "hobby",
+          values: ["yodeling", "chess", "roller skating"],
+          clue: (v) => `The hotel clerk says the thief would not stop talking about ${v}.`,
+          lineup: (v) => `Loves ${v}.`,
+        },
       ],
       suspects: [
         ["kerfuffle", "Countess Kerfuffle", "pickled onions", "🦚"],
@@ -469,12 +532,24 @@ const ChaseEngine = (() => {
       id: "sticky",
       name: "the Sticky Fingers Club",
       groups: [
-        { key: "shoes", values: ["rubber boots", "tap shoes", "fluffy slippers"],
-          clue: (v) => `A shoe shiner says the thief wore ${v}.`, lineup: (v) => `Wears ${v}.` },
-        { key: "ride", values: ["a unicycle", "a pogo stick", "a tiny scooter"],
-          clue: (v) => `A police officer saw the thief ride away on ${v}.`, lineup: (v) => `Rides ${v}.` },
-        { key: "sound", values: ["humming opera songs", "hiccuping", "whistling"],
-          clue: (v) => `The waiter says the thief kept ${v} all through lunch.`, lineup: (v) => `Keeps ${v}.` },
+        {
+          key: "shoes",
+          values: ["rubber boots", "tap shoes", "fluffy slippers"],
+          clue: (v) => `A shoe shiner says the thief wore ${v}.`,
+          lineup: (v) => `Wears ${v}.`,
+        },
+        {
+          key: "ride",
+          values: ["a unicycle", "a pogo stick", "a tiny scooter"],
+          clue: (v) => `A police officer saw the thief ride away on ${v}.`,
+          lineup: (v) => `Rides ${v}.`,
+        },
+        {
+          key: "sound",
+          values: ["humming opera songs", "hiccuping", "whistling"],
+          clue: (v) => `The waiter says the thief kept ${v} all through lunch.`,
+          lineup: (v) => `Keeps ${v}.`,
+        },
       ],
       suspects: [
         ["mischief", "Madame Mischief", "jelly beans", "😈"],
@@ -489,12 +564,24 @@ const ChaseEngine = (() => {
       id: "giggle",
       name: "the Gigglesnort Gang",
       groups: [
-        { key: "glasses", values: ["round glasses", "star-shaped glasses", "heart-shaped glasses"],
-          clue: (v) => `A ticket clerk noticed that the thief wore ${v}.`, lineup: (v) => `Wears ${v}.` },
-        { key: "music", values: ["a kazoo", "a tuba", "a tiny triangle"],
-          clue: (v) => `A street musician says the thief played ${v} at the station.`, lineup: (v) => `Plays ${v}.` },
-        { key: "collects", values: ["spoons", "stamps", "seashells"],
-          clue: (v) => `The thief asked a shopkeeper for old ${v}. The thief collects them!`, lineup: (v) => `Collects ${v}.` },
+        {
+          key: "glasses",
+          values: ["round glasses", "star-shaped glasses", "heart-shaped glasses"],
+          clue: (v) => `A ticket clerk noticed that the thief wore ${v}.`,
+          lineup: (v) => `Wears ${v}.`,
+        },
+        {
+          key: "music",
+          values: ["a kazoo", "a tuba", "a tiny triangle"],
+          clue: (v) => `A street musician says the thief played ${v} at the station.`,
+          lineup: (v) => `Plays ${v}.`,
+        },
+        {
+          key: "collects",
+          values: ["spoons", "stamps", "seashells"],
+          clue: (v) => `The thief asked a shopkeeper for old ${v}. The thief collects them!`,
+          lineup: (v) => `Collects ${v}.`,
+        },
       ],
       suspects: [
         ["doodle", "Duchess Doodle", "cheese sticks", "✏️"],
@@ -509,12 +596,24 @@ const ChaseEngine = (() => {
       id: "snicker",
       name: "the Snickerdoodle Society",
       groups: [
-        { key: "scarf", values: ["a red scarf", "a green scarf", "a purple scarf"],
-          clue: (v) => `A bus driver remembers that the thief wore ${v}.`, lineup: (v) => `Wears ${v}.` },
-        { key: "carries", values: ["a striped umbrella", "a picnic basket", "a violin case"],
-          clue: (v) => `The thief carried ${v} everywhere.`, lineup: (v) => `Carries ${v}.` },
-        { key: "laugh", values: ["a snort", "a squeak", "a honk"],
-          clue: (v) => `A juggler made the thief laugh. It sounded like ${v}!`, lineup: (v) => `Laughs with ${v}.` },
+        {
+          key: "scarf",
+          values: ["a red scarf", "a green scarf", "a purple scarf"],
+          clue: (v) => `A bus driver remembers that the thief wore ${v}.`,
+          lineup: (v) => `Wears ${v}.`,
+        },
+        {
+          key: "carries",
+          values: ["a striped umbrella", "a picnic basket", "a violin case"],
+          clue: (v) => `The thief carried ${v} everywhere.`,
+          lineup: (v) => `Carries ${v}.`,
+        },
+        {
+          key: "laugh",
+          values: ["a snort", "a squeak", "a honk"],
+          clue: (v) => `A juggler made the thief laugh. It sounded like ${v}!`,
+          lineup: (v) => `Laughs with ${v}.`,
+        },
       ],
       suspects: [
         ["applesauce", "Admiral Applesauce", "pretzels", "🍎"],
@@ -628,7 +727,10 @@ const ChaseEngine = (() => {
           r,
           ALL.filter((k) => k !== to && byCode[k].continent === byCode[to].continent && !visited.has(k)),
         );
-        const far = shuffle(r, ALL.filter((k) => k !== to && !near.includes(k)));
+        const far = shuffle(
+          r,
+          ALL.filter((k) => k !== to && !near.includes(k)),
+        );
         const wrong = [...near, ...far].filter((k) => !clues.every((cl) => cl.fits(k))).slice(0, 3);
         step.options = shuffle(r, [to, ...wrong]);
       }

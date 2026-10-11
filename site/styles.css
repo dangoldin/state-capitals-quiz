@@ -21,9 +21,7 @@
   --map-border: #a2998a;
   --map-target: #1f3550;
 
-  --serif-display:
-    "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
-    Georgia, "Times New Roman", serif;
+  --serif-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
   --serif-text: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
 * {
