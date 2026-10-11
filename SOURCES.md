@@ -132,6 +132,31 @@ Checked on 10 October 2026.
 - **Excluded by hand:** largest in Asia. In these decks Russia is in Europe, so the answer would be China, but a child could fairly answer Russia.
 - **"Smallest in Europe"** means among UN members, so the answer is Monaco, not Vatican City.
 
+## History and culture facts (`site/culture.js`)
+
+Each country has 2 "Did you know?" facts about its capital and 3 clues (history, culture, food, landmark, nature, and similar). Every item has its own `source` URL in `culture.js`.
+
+How the facts were made (October 2026):
+
+1. Research agents wrote the facts in 8 batches. They opened each source and found the sentence that states the fact.
+2. A separate review agent checked each batch against the source pages, and fixed or replaced about 150 items: claims that the source did not support, records and numbers that change, dates that sources give differently, and clues that also fit another country.
+3. A last pass by hand replaced a few more clues (for example, a clue that named the Gambia River for Guinea).
+
+Rules for the facts:
+
+- A clue fits only one of the 193 countries. It never names the country, its capital, or a demonym (`npm run check` checks the names).
+- The facts are for children: no wars' casualties, slavery details, violence, disputed borders, or politics. A legend is labeled "A legend says".
+- Records are hedged ("one of the oldest") unless the source states them clearly, and a record that can change is worded with its year ("became the tallest building in the world when it opened in 2010").
+- Almost all sources are English Wikipedia. UNESCO's World Heritage pages and Britannica blocked automatic access, so UNESCO listings are taken from Wikipedia.
+
+Facts to check again:
+
+- AE: Burj Khalifa (the Jeddah Tower may become taller).
+- KW: Bubiyan Island (a port is under construction).
+- SL: Freetown's Cotton Tree (most of it fell in May 2023).
+- NR: Naoero's name change (2026) and Yaren, which has no official capital status.
+- GQ: Ciudad de la Paz is still under construction.
+
 ## Facts to check again
 
 | Fact | Why | When to check |

@@ -5,12 +5,30 @@
   const $ = (id) => document.getElementById(id);
   const byCode = Object.fromEntries(COUNTRIES.map((c) => [c.code, c]));
   const suspectById = Object.fromEntries(E.SUSPECTS.map((s) => [s.id, s]));
+  // History and culture facts (culture.js); the page also works without them.
+  const CULT = typeof CULTURE === "undefined" ? {} : CULTURE;
+  const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+  // A short scene when the detectives land on the right trail.
+  const ARRIVALS = [
+    "The thief's tea is still warm!",
+    "A sticky snack wrapper is on the floor.",
+    "We just missed the thief!",
+    "The hotel clerk saw someone run out the back door.",
+    "There are muddy footprints all over the airport.",
+    "A taxi driver says the thief did not leave a tip.",
+    "The thief's seat on the plane is still warm!",
+  ];
 
   // Players are shared with the quiz (same storage key and shape).
   const PLAYERS_KEY = "geo-players-v1";
   const CASEBOOK_KEY = "chase-casebook-v1";
   const LEVEL_KEY = "chase-level-v1";
-  const AVATARS = ["🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁"];
+  // The same animals as AVATARS in app.js.
+  const AVATARS = [
+    "🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁",
+    "🐶", "🐱", "🐰", "🐻", "🐷", "🐵", "🦄", "🐢",
+    "🐬", "🦖", "🐧", "🦒", "🐝", "🦋", "🐳", "🦜",
+  ];
   const SPARE_DAYS = 3; // days for wrong guesses, on top of one per flight
   const CASE_NO_KEY = "chase-next-case-v1";
   const LEVEL_NOTES = {
@@ -150,8 +168,18 @@
         savePlayers();
         renderSetup();
       });
-      list.appendChild(b);
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "detective-edit" + (editing && editing.id === p.id ? " on" : "");
+      edit.setAttribute("aria-label", `Change ${p.name}'s name or animal`);
+      edit.textContent = "✎";
+      edit.addEventListener("click", () => startEdit(p.id));
+      const chip = document.createElement("span");
+      chip.className = "detective-chip";
+      chip.append(b, edit);
+      list.appendChild(chip);
     }
+    renderEdit();
     $("detectiveHint").textContent = players.list.length
       ? "Tap names to choose who plays. Detectives take turns."
       : "Add each detective by name.";
@@ -165,6 +193,55 @@
     const solved = readJSON(CASEBOOK_KEY, []).filter((c) => c.solved).length;
     $("caseCount").textContent = solved ? `${solved} ${solved === 1 ? "case" : "cases"} solved` : "";
   }
+
+  // Change a detective's name or animal. `editing` is { id, avatar }.
+  let editing = null;
+  function startEdit(id) {
+    const p = playerById(id);
+    if (!p) return;
+    editing = { id, avatar: p.avatar };
+    $("editDetectiveName").value = p.name;
+    renderSetup();
+    $("editDetectiveName").focus({ preventScroll: true });
+  }
+  function renderEdit() {
+    const form = $("editDetectiveForm");
+    const p = editing && playerById(editing.id);
+    form.hidden = !p;
+    $("addDetectiveForm").hidden = !!p;
+    if (!p) return;
+    $("editDetectiveLabel").textContent = `Change ${p.name}`;
+    const picker = $("editAvatarPicker");
+    picker.innerHTML = "";
+    for (const a of AVATARS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "avatar-option" + (a === editing.avatar ? " active" : "");
+      b.textContent = a;
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", a === editing.avatar ? "true" : "false");
+      b.addEventListener("click", () => {
+        editing.avatar = a;
+        renderEdit();
+      });
+      picker.appendChild(b);
+    }
+  }
+  $("editDetectiveForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const p = editing && playerById(editing.id);
+    const name = $("editDetectiveName").value.trim();
+    if (!p || !name) return;
+    p.name = name;
+    p.avatar = editing.avatar;
+    editing = null;
+    savePlayers();
+    renderSetup();
+  });
+  $("editDetectiveCancel").addEventListener("click", () => {
+    editing = null;
+    renderSetup();
+  });
 
   $("addDetectiveForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -209,6 +286,7 @@
       extra: c.steps.map(() => []),
       notes: [],
       flown: [c.start],
+      learned: [], // facts behind the history and culture clues
     };
     // Case numbers never repeat, also when a case is left unfinished.
     const caseNo = Math.max(readJSON(CASE_NO_KEY, 1), readJSON(CASEBOOK_KEY, []).length + 1);
@@ -217,7 +295,7 @@
     game.caseNo = caseNo;
     $("caseHeadline").textContent = `Stolen: ${c.loot}!`;
     $("caseText").textContent =
-      `Someone has stolen ${c.loot}. The thief was last seen in ${placeOf(c.start)}. ` +
+      `${c.story} The thief is one of ${E.gangById[c.gang].name}. ` +
       `Follow the trail, find out who the thief is, and catch them in ${game.days} days.`;
     const names = teamNames();
     $("caseTeam").textContent = `Assigned to ${names.length > 1 ? "Detectives" : "Detective"} ${listNames(names)}.`;
@@ -259,6 +337,10 @@
       li.appendChild(t);
       list.appendChild(li);
     }
+    // "Did you know?": a fact about the city we are in.
+    const cityFacts = CULT[here]?.city || [];
+    $("postcard").hidden = !cityFacts.length;
+    if (cityFacts.length) $("postcardText").textContent = cityFacts[(game.c.seed + game.step) % cityFacts.length].text;
     // A trait of the thief, noted once.
     if (s.trait && !game.notes.includes(s.trait.text)) game.notes.push(s.trait.text);
     renderNotebook($("notebook"));
@@ -343,7 +425,7 @@
         p.className = "desk-hint";
         p.textContent = game.choices
           ? "One of the gold countries is right. Tap one to see its name."
-          : "Tap a country on the map to see its name. Use + and − or pinch to zoom.";
+          : "Tap a country on the map to see its name. Drag or scroll to move the map; pinch, use the wheel, or press + and − to zoom.";
         area.appendChild(p);
       }
       if (!game.choices) {
@@ -397,9 +479,11 @@
       $("chaseFeedback").className = "feedback warn";
       return;
     }
-    // Every flight takes a day, and the next detective has the next turn.
+    // Every flight takes a day (except a free ride), and the next detective
+    // has the next turn.
     const who = detective();
-    game.day += 1;
+    const free = code === s.to && s.lucky;
+    if (!free) game.day += 1;
     passTurn();
     if (code === s.to) {
       game.flown.push(code);
@@ -408,7 +492,13 @@
       game.choices = null;
       game.step += 1;
       if (game.day > game.days) return endCase(false);
-      const found = `Right, ${who.name}! Someone saw the thief at the airport in ${placeOf(code)}. We're on the trail!`;
+      // The facts behind the history and culture clues of this step.
+      const facts = [...s.clues, ...game.extra[game.step - 1]].filter((cl) => cl.fact).map((cl) => cl.fact);
+      for (const f of facts) if (!game.learned.includes(f)) game.learned.push(f);
+      const found =
+        `Right, ${who.name}! ${pickOne(ARRIVALS)} We're on the trail in ${placeOf(code)}.` +
+        (free ? " A friendly pilot gave us a free ride, so we lost no day!" : "") +
+        (facts.length ? ` Did you know? ${facts.join(" ")}` : "");
       if (game.step >= game.c.steps.length) return showLineup(found);
       return showCity(found);
     }
@@ -442,7 +532,7 @@
     $("lineupFeedback").textContent = "";
     const list = $("suspectList");
     list.innerHTML = "";
-    for (const sus of E.SUSPECTS) {
+    for (const sus of E.SUSPECTS.filter((x) => x.gang === game.c.gang)) {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "suspect";
@@ -453,7 +543,7 @@
       tr.className = "suspect-traits";
       // The snack stays a fun note: each suspect has a different one, so it
       // would name the thief alone.
-      tr.textContent = `Wears ${sus.hat}. Has ${sus.pet}. Loves ${sus.hobby}.`;
+      tr.textContent = E.lineupText(sus);
       b.append(nm, tr);
       b.addEventListener("click", () => accuse(sus.id, b));
       list.appendChild(b);
@@ -495,12 +585,22 @@
         `It was ${thief.name}, who escaped from ${where} with ${game.c.loot}. ` +
         `The map shows the route. A new case is waiting, ${names}!`;
     }
+    // The history and culture facts from the trail.
+    const learned = $("learnedList");
+    learned.innerHTML = "";
+    for (const f of game.learned) {
+      const li = document.createElement("li");
+      li.textContent = f;
+      learned.appendChild(li);
+    }
+    $("learned").hidden = !game.learned.length;
     const book = readJSON(CASEBOOK_KEY, []);
     book.push({
       no: game.caseNo,
       date: new Date().toISOString().slice(0, 10),
       level: game.c.level,
       loot: game.c.loot,
+      gang: game.c.gang,
       thief: game.c.thief,
       solved,
       detectives: teamNames(),
@@ -766,14 +866,55 @@
       if (type !== "pointerup") tapStart = null;
     });
   }
-  // Trackpad pinch sends ctrl + wheel. A plain wheel still scrolls the page.
+  // The part of a pan (dx, dy) that keepInFrame() allows, from the last
+  // drawn map plus any pan that waits for the next frame.
+  function allowedPan(dx, dy) {
+    if (!trailView.key || !trailProjection) return [0, 0];
+    const [[x0, y0], [x1, y1]] = d3.geoPath(trailProjection).bounds({ type: "Sphere" });
+    const [px, py] = trailProjection.translate();
+    const ox = trailView.translate[0] - px;
+    const oy = trailView.translate[1] - py;
+    const clamp = (d, lo, hi, size) =>
+      hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d));
+    return [clamp(dx, x0 + ox, x1 + ox, MAP_W), clamp(dy, y0 + oy, y1 + oy, MAP_H)];
+  }
+
+  // Wheel input, as on the quiz map: a trackpad pinch (ctrl + wheel) and a
+  // mouse wheel zoom, and a two-finger trackpad scroll moves the map. When
+  // the map cannot move or zoom further that way, the page scrolls instead.
+  let wheelGesture = { at: 0, mouse: false };
+  function isMouseWheel(e) {
+    const now = performance.now();
+    // Decide once for each gesture: a trackpad scroll starts with small steps.
+    if (now - wheelGesture.at > 300)
+      wheelGesture.mouse =
+        e.deltaMode !== 0 ||
+        (e.deltaX === 0 &&
+          Math.abs(e.deltaY) >= 40 &&
+          (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
+    wheelGesture.at = now;
+    return wheelGesture.mouse;
+  }
   svgEl.addEventListener(
     "wheel",
     (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
+      if (!trailView.key) return;
       const [x, y] = mapPoint(svgEl, e.clientX, e.clientY);
-      zoomAt(x, y, Math.exp(-e.deltaY * 0.01));
+      const pinch = e.ctrlKey || e.metaKey;
+      if (pinch || isMouseWheel(e)) {
+        const step = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
+        const factor = Math.exp(-step * (pinch ? 0.01 : 0.002));
+        const stuck = factor < 1 ? trailView.k <= trailView.minK : trailView.k >= MAX_ZOOM;
+        if (stuck && !pinch) return;
+        e.preventDefault();
+        zoomAt(x, y, factor);
+        return;
+      }
+      const scale = MAP_W / svgEl.clientWidth;
+      const [dx, dy] = allowedPan(-e.deltaX * scale, -e.deltaY * scale);
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+      e.preventDefault();
+      panBy(dx, dy);
     },
     { passive: false },
   );

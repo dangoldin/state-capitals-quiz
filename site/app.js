@@ -142,7 +142,11 @@
   // Points: 10 for a choice (Easy), 20 for a typed answer, and a bonus from
   // the third correct answer in a row. A wrong answer never removes points.
   const POINTS = { easy: 10, type: 20, runBonus: 5, runFrom: 3 };
-  const AVATARS = ["🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁"];
+  const AVATARS = [
+    "🦊", "🐼", "🐯", "🐸", "🐙", "🦉", "🐨", "🦁",
+    "🐶", "🐱", "🐰", "🐻", "🐷", "🐵", "🦄", "🐢",
+    "🐬", "🦖", "🐧", "🦒", "🐝", "🦋", "🐳", "🦜",
+  ];
 
   const $ = (id) => document.getElementById(id);
   const deckTitleEl = $("deckTitle");
@@ -717,6 +721,8 @@
   }
 
   let chosenAvatar = AVATARS[0];
+  // The player whose name and animal the form changes; null adds a player.
+  let editingId = null;
 
   function renderPlayers() {
     const list = $("playerList");
@@ -772,7 +778,14 @@
         if (ok) removePlayer(p.id);
       });
 
-      row.append(pick, level, remove);
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "player-edit" + (editingId === p.id ? " on" : "");
+      edit.setAttribute("aria-label", "Change " + p.name + "'s name or animal");
+      edit.textContent = "✎";
+      edit.addEventListener("click", () => startEdit(p.id));
+
+      row.append(pick, level, edit, remove);
       list.appendChild(row);
     }
     $("playersHint").textContent = players.list.length
@@ -785,6 +798,10 @@
       b.setAttribute("aria-checked", on ? "true" : "false");
     }
 
+    const editing = playerById(editingId);
+    $("addPlayerLabel").textContent = editing ? `Change ${editing.name}` : "New player";
+    $("addPlayerSubmit").textContent = editing ? "Save" : "Add player";
+    $("editCancel").hidden = !editing;
     const picker = $("avatarPicker");
     picker.innerHTML = "";
     for (const a of AVATARS) {
@@ -811,10 +828,32 @@
     $("playersClose").hidden = !ready;
   }
 
-  function openPlayers() {
-    // Suggest an animal that no player has yet.
+  // Suggest an animal that no player has yet.
+  function freeAvatar() {
     const used = new Set(players.list.map((p) => p.avatar));
-    chosenAvatar = AVATARS.find((a) => !used.has(a)) || AVATARS[0];
+    return AVATARS.find((a) => !used.has(a)) || AVATARS[0];
+  }
+
+  function startEdit(id) {
+    const p = playerById(id);
+    if (!p) return;
+    editingId = id;
+    chosenAvatar = p.avatar;
+    $("newPlayerName").value = p.name;
+    renderPlayers();
+    $("newPlayerName").focus({ preventScroll: true });
+  }
+
+  function stopEdit() {
+    editingId = null;
+    chosenAvatar = freeAvatar();
+    $("newPlayerName").value = "";
+    renderPlayers();
+  }
+
+  function openPlayers() {
+    editingId = null;
+    chosenAvatar = freeAvatar();
     renderPlayers();
     $("playersBackdrop").classList.add("open");
     setInert(true);
@@ -1184,10 +1223,22 @@
     e.preventDefault();
     const name = $("newPlayerName").value.trim();
     if (!name) return;
+    const editing = playerById(editingId);
+    if (editing) {
+      editing.name = name;
+      editing.avatar = chosenAvatar;
+      savePlayers();
+      stopEdit();
+      renderPlayerButton();
+      renderTurn();
+      renderScore();
+      return;
+    }
     $("newPlayerName").value = "";
     addPlayer(name, chosenAvatar);
     $("newPlayerName").focus();
   });
+  $("editCancel").addEventListener("click", stopEdit);
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
@@ -1372,7 +1423,9 @@
       };
     }
     projection.scale(mapView.baseScale * mapView.k).translate(mapView.translate);
-    keepInFrame(projection, m.kind === "world" ? { type: "Sphere" } : mapData.nation);
+    const outline = m.kind === "world" ? { type: "Sphere" } : mapData.nation;
+    keepInFrame(projection, outline);
+    lastOutline = outline;
     lastMapDraw = { item, revealed };
     lastProjection = projection;
     mapSvgEl.classList.toggle("zoomed", mapView.k !== 1);
@@ -1469,6 +1522,7 @@
 
   // --- "Where is it?" taps ---
   let lastProjection = null;
+  let lastOutline = null; // the shape that keepInFrame() keeps in view
   let lastTap = null; // { lonlat, correct } for the current card
   const TAP_SLACK = 16; // map units; a near miss counts for a tiny country
 
@@ -1655,14 +1709,55 @@
       if (type !== "pointerup") tapStart = null;
     });
   }
-  // Trackpad pinch sends ctrl + wheel. A plain wheel still scrolls the page.
+  // The part of a pan (dx, dy) that keepInFrame() allows, from the last
+  // drawn map plus any pan that waits for the next frame.
+  function allowedPan(dx, dy) {
+    if (!mapView.key || !lastProjection || !lastOutline) return [0, 0];
+    const [[x0, y0], [x1, y1]] = d3.geoPath(lastProjection).bounds(lastOutline);
+    const [px, py] = lastProjection.translate();
+    const ox = mapView.translate[0] - px;
+    const oy = mapView.translate[1] - py;
+    const clamp = (d, lo, hi, size) =>
+      hi - lo <= size ? 0 : Math.min(-lo, Math.max(size - hi, d));
+    return [clamp(dx, x0 + ox, x1 + ox, MAP_W), clamp(dy, y0 + oy, y1 + oy, MAP_H)];
+  }
+
+  // Wheel input over the map. A trackpad pinch (ctrl + wheel) and a mouse
+  // wheel zoom. A two-finger trackpad scroll moves the map. When the map
+  // cannot move or zoom further that way, the page scrolls instead.
+  let wheelGesture = { at: 0, mouse: false };
+  function isMouseWheel(e) {
+    const now = performance.now();
+    // Decide once for each gesture: a trackpad scroll starts with small steps.
+    if (now - wheelGesture.at > 300)
+      wheelGesture.mouse =
+        e.deltaMode !== 0 ||
+        (e.deltaX === 0 &&
+          Math.abs(e.deltaY) >= 40 &&
+          (e.wheelDeltaY === undefined || e.wheelDeltaY % 120 === 0));
+    wheelGesture.at = now;
+    return wheelGesture.mouse;
+  }
   mapSvgEl.addEventListener(
     "wheel",
     (e) => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
+      if (!mapView.key) return;
       const [x, y] = mapPoint(e.clientX, e.clientY);
-      zoomAt(x, y, Math.exp(-e.deltaY * 0.01));
+      const pinch = e.ctrlKey || e.metaKey;
+      if (pinch || isMouseWheel(e)) {
+        const step = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY;
+        const factor = Math.exp(-step * (pinch ? 0.01 : 0.002));
+        const stuck = factor < 1 ? mapView.k <= mapView.minK : mapView.k >= MAX_ZOOM;
+        if (stuck && !pinch) return;
+        e.preventDefault();
+        zoomAt(x, y, factor);
+        return;
+      }
+      const scale = MAP_W / mapSvgEl.clientWidth;
+      const [dx, dy] = allowedPan(-e.deltaX * scale, -e.deltaY * scale);
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+      e.preventDefault();
+      panBy(dx, dy);
     },
     { passive: false },
   );

@@ -71,6 +71,52 @@
   filter: grayscale(1);
   opacity: 0.6;
 }
+.detective-chip {
+  display: inline-flex;
+}
+.detective-chip .detective {
+  border-right: none;
+}
+.detective-edit {
+  background: #fff;
+  color: var(--muted);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 0 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.detective-chip .detective.active + .detective-edit {
+  border-color: var(--ink);
+}
+.detective-edit:hover,
+.detective-edit.on {
+  color: var(--navy);
+}
+.edit-detective {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--ink);
+  background: #fff;
+}
+.edit-detective[hidden],
+.add-detective[hidden] {
+  display: none;
+}
+.edit-detective input {
+  font-size: 17px;
+  padding: 10px 12px;
+}
+.edit-buttons {
+  display: flex;
+  gap: 8px;
+}
+.edit-buttons > * {
+  flex: 1;
+}
 .add-detective {
   flex-direction: row;
   margin-top: 0;
@@ -196,6 +242,12 @@
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+}
+#chaseMap {
+  cursor: grab;
+}
+#chaseMap:active {
+  cursor: grabbing;
 }
 .chase-map svg path,
 .chase-map svg circle {
@@ -386,4 +438,45 @@
 .hint-btn {
   width: 100%;
   margin-top: 10px;
+}
+
+/* "Did you know?" about the city, and the facts at the end */
+.postcard {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--rule-strong);
+  border-left: 4px solid var(--navy);
+}
+.postcard[hidden],
+.learned[hidden] {
+  display: none;
+}
+.postcard-head {
+  font-family: var(--serif-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+.postcard p {
+  margin: 4px 0 0;
+  font-size: 17px;
+  line-height: 1.4;
+}
+.learned {
+  margin: 0 0 16px;
+}
+.learned ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+.learned li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.gang-name {
+  font-style: italic;
+  color: var(--muted);
 }

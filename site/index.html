@@ -196,7 +196,7 @@
             </div>
           </div>
           <form class="add-player" id="addPlayerForm" autocomplete="off">
-            <div class="deck-label">New player</div>
+            <div class="deck-label" id="addPlayerLabel">New player</div>
             <input
               type="text"
               id="newPlayerName"
@@ -212,7 +212,10 @@
               role="radiogroup"
               aria-label="Choose an animal"
             ></div>
-            <button type="submit" class="action dunno">Add player</button>
+            <div class="add-player-buttons">
+              <button type="submit" class="action dunno" id="addPlayerSubmit">Add player</button>
+              <button type="button" class="action dunno" id="editCancel" hidden>Cancel</button>
+            </div>
           </form>
           <div class="start-row">
             <button type="button" class="action next" id="startBtn" disabled>

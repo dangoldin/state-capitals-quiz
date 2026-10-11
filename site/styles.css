@@ -729,6 +729,7 @@ button.action:disabled {
   color: var(--paper);
   border-color: var(--ink);
 }
+.player-edit,
 .player-remove {
   background: transparent;
   color: var(--muted);
@@ -737,6 +738,24 @@ button.action:disabled {
   width: 40px;
   font-size: 20px;
   cursor: pointer;
+}
+.player-edit:hover,
+.player-edit.on {
+  color: var(--navy);
+  border-color: var(--navy);
+}
+.player-edit {
+  font-size: 18px;
+}
+.add-player-buttons {
+  display: flex;
+  gap: 8px;
+}
+.add-player-buttons > * {
+  flex: 1;
+}
+.add-player-buttons [hidden] {
+  display: none;
 }
 .player-remove:hover {
   color: var(--bad);
@@ -900,6 +919,9 @@ button.danger:hover {
   height: auto;
   background: var(--card);
   border: 1px solid var(--rule-strong);
+}
+#mapSvg:active {
+  cursor: grabbing;
 }
 #mapSvg path,
 #mapSvg circle {

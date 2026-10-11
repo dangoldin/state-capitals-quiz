@@ -196,9 +196,51 @@ for (const c of COUNTRIES) {
 }
 for (const k of Object.keys(FACTS)) if (!COUNTRIES.some((c) => c.code === k)) fail(`facts.js: ${k} is not a country in data.js`);
 
+// 9. History and culture facts (culture.js): a source for every fact, and
+//    clues that never name the country or its capital.
+const KINDS = new Set(["history", "landmark", "culture", "food", "music", "sport", "nature", "invention"]);
+const CULTURE_KINDS = new Set(["culture", "food", "music", "sport", "landmark"]);
+vm.runInContext(fs.readFileSync(path.join(root, "culture.js"), "utf8") + "\nthis.CULTURE = CULTURE;", ctx);
+const { CULTURE } = ctx;
+const isSource = (u) => typeof u === "string" && /^https:\/\/[^\s]+$/.test(u);
+const hasWord = (text, word) => {
+  const t = ` ${normalize(text).replace(/[^a-z0-9 ]/g, " ")} `;
+  const w = normalize(word).replace(/[^a-z0-9 ]/g, " ").trim();
+  return w.length > 2 && t.includes(` ${w} `);
+};
+const clueOwner = new Map();
+for (const c of COUNTRIES) {
+  const e = CULTURE[c.code];
+  if (!e) {
+    fail(`${c.code}: no entry in culture.js`);
+    continue;
+  }
+  if (!Array.isArray(e.city) || e.city.length < 2) fail(`${c.code}: needs at least 2 city facts`);
+  if (!Array.isArray(e.clues) || e.clues.length < 3) fail(`${c.code}: needs at least 3 clues`);
+  for (const f of e.city || []) {
+    if (!f.text || f.text.length > 220) fail(`${c.code}: city fact missing or too long: ${f.text}`);
+    if (!isSource(f.source)) fail(`${c.code}: city fact without an https source: ${f.text}`);
+  }
+  const kinds = (e.clues || []).map((f) => f.kind);
+  if (!kinds.includes("history")) fail(`${c.code}: no history clue`);
+  if (!kinds.some((k) => CULTURE_KINDS.has(k))) fail(`${c.code}: no culture clue`);
+  for (const f of e.clues || []) {
+    if (!KINDS.has(f.kind)) fail(`${c.code}: unknown clue kind ${f.kind}`);
+    if (!/^The thief [a-z].*[.!]$/.test(f.clue || "")) fail(`${c.code}: a clue must start with "The thief " and end with a period: ${f.clue}`);
+    if (!f.fact || f.fact.length > 220) fail(`${c.code}: clue fact missing or too long: ${f.fact}`);
+    if (!isSource(f.source)) fail(`${c.code}: clue without an https source: ${f.clue}`);
+    for (const n of [c.name, ...(c.aka || []), c.capital, ...(c.capitalAlso || []), ...(c.capitalAka || [])])
+      if (hasWord(f.clue || "", n)) fail(`${c.code}: the clue gives the answer away ("${n}"): ${f.clue}`);
+    const key = normalize(f.clue || "");
+    if (clueOwner.has(key)) fail(`${c.code}: the same clue is also used for ${clueOwner.get(key)}`);
+    clueOwner.set(key, c.code);
+  }
+}
+for (const k of Object.keys(CULTURE)) if (!COUNTRIES.some((c) => c.code === k)) fail(`culture.js: ${k} is not a country in data.js`);
+
 if (errors.length) {
   console.error(errors.map((e) => "✗ " + e).join("\n"));
   console.error(`\n${errors.length} problem(s) found.`);
   process.exit(1);
 }
-console.log(`✓ data.js and facts.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);
+console.log(`✓ data.js, facts.js, and culture.js OK: ${COUNTRIES.length} countries, ${US_STATES.length} states, all flags present, all capitals on the maps.`);
